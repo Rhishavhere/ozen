@@ -47,32 +47,65 @@ function createWindow() {
 }
 
 let orbWin: BrowserWindow | null;
+let orbTimeout: NodeJS.Timeout;
+let trackInterval: NodeJS.Timeout | null = null;
 
 function createOrbWindow() {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
-  const size = 64; // Size of the floating orb
+  const size = 100; // Larger window to allow the "zoop" animation space to breathe without clipping
+  
+  const getPosition = () => {
+    const point = screen.getCursorScreenPoint();
+    return { x: point.x, y: point.y };
+  };
 
-  orbWin = new BrowserWindow({
-    width: size,
-    height: size,
-    x: width - size - 40, // 40px from right
-    y: height - size - 40, // 40px from bottom (above taskbar)
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.mjs")
-    }
-  });
+  const initialPos = getPosition();
 
-  if (VITE_DEV_SERVER_URL) {
-    orbWin.loadURL(`${VITE_DEV_SERVER_URL}/#/orb`);
+  if (orbWin) {
+    orbWin.setPosition(initialPos.x, initialPos.y);
+    orbWin.show();
   } else {
-    orbWin.loadFile(path.join(RENDERER_DIST, "index.html"), { hash: "/orb" });
+    orbWin = new BrowserWindow({
+      width: size,
+      height: size,
+      x: initialPos.x,
+      y: initialPos.y,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      resizable: false,
+      webPreferences: {
+        preload: path.join(__dirname, "preload.mjs")
+      }
+    });
+
+    if (VITE_DEV_SERVER_URL) {
+      orbWin.loadURL(`${VITE_DEV_SERVER_URL}/#/orb`);
+    } else {
+      orbWin.loadFile(path.join(RENDERER_DIST, "index.html"), { hash: "/orb" });
+    }
   }
+
+  // Active tracking loop while visible
+  if (trackInterval) clearInterval(trackInterval);
+  trackInterval = setInterval(() => {
+    if (orbWin && !orbWin.isDestroyed() && orbWin.isVisible()) {
+      const pos = getPosition();
+      orbWin.setPosition(pos.x, pos.y);
+    }
+  }, 16); // ~60fps tracking
+
+  // Auto-hide after 5 seconds
+  if (orbTimeout) clearTimeout(orbTimeout);
+  orbTimeout = setTimeout(() => {
+    if (orbWin && !orbWin.isDestroyed()) {
+      orbWin.hide();
+      if (trackInterval) {
+        clearInterval(trackInterval);
+        trackInterval = null;
+      }
+    }
+  }, 5000);
 }
 let panelWin: BrowserWindow | null;
 
@@ -137,14 +170,14 @@ app.whenReady().then(() => {
   createOrbWindow(); // Now opens the Orb instead of the Main window on launch
 
   // Create System Tray (Background Apps) Icon
-  const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg');
+  const iconPath = path.join(process.env.VITE_PUBLIC, "logo.svg");
   tray = new Tray(nativeImage.createFromPath(iconPath));
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Open Ozen Hub', click: () => { createWindow() } },
-    { type: 'separator' },
-    { label: 'Quit Ozen', click: () => { app.quit() } }
+    { label: "Open Ozen Hub", click: () => { createWindow() } },
+    { type: "separator" },
+    { label: "Quit Ozen", click: () => { app.quit() } }
   ]);
-  tray.setToolTip('Ozen');
+  tray.setToolTip("Ozen");
   tray.setContextMenu(contextMenu);
 
   // Track key sequence for "@ozen"

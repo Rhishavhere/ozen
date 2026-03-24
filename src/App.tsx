@@ -22,7 +22,7 @@ function App() {
 
   if (route === '#/orb') {
     return (
-      <div className="w-screen h-screen m-0 overflow-hidden bg-transparent p-1">
+      <div className="w-full h-full m-0 p-0 overflow-hidden bg-transparent flex items-center justify-center">
         <Orb />
       </div>
     );
