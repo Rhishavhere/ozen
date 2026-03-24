@@ -106,7 +106,8 @@ export const Panel: React.FC = () => {
           }
           return msg;
         }));
-      }
+      },
+      { source: 'panel' }
     );
   };
 

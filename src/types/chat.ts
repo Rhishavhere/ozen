@@ -23,6 +23,8 @@ export interface OzenSettings {
   ollamaUrl: string;
   panelSearchEngine?: 'google' | 'duckduckgo';
   deskSearchEngine?: 'google' | 'duckduckgo';
+  membrainPanelFetch: boolean;
+  membrainDeskFetch: boolean;
 }
 
 export interface OllamaModel {

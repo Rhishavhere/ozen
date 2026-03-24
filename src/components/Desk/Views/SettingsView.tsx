@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Cpu, ChevronDown, Zap, Activity, Globe } from 'lucide-react';
+import { Save, Cpu, ChevronDown, Zap, Activity, Globe, Database } from 'lucide-react';
 import { OzenSettings } from '../../../types/chat';
 import { getSettings, saveSettings } from '../../../lib/store';
 import { useOllama } from '../../../hooks/useOllama';
@@ -191,6 +191,59 @@ export const SettingsView: React.FC = () => {
                     </select>
                     <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Membrain Memory Fetching */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm overflow-hidden md:col-span-2">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center">
+                  <Database size={17} className="text-purple-500" />
+                </div>
+                <div>
+                  <h2 className="text-[14px] font-bold text-gray-900">Memory Retrieval (Membrain)</h2>
+                  <p className="text-[11px] text-gray-400 font-medium">Toggle whether Ozen fetches context from your persistent history.</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <div>
+                    <p className="text-[13px] font-bold text-gray-800">Floating Panel Memory Fetch</p>
+                    <p className="text-[11px] text-gray-400 font-medium">Disable to stop panel from searching your history.</p>
+                  </div>
+                  <button
+                    onClick={() => setSettings(prev => ({ ...prev, membrainPanelFetch: !prev.membrainPanelFetch }))}
+                    className={`w-11 h-6 rounded-full transition-colors cursor-pointer relative ${
+                      settings.membrainPanelFetch ? 'bg-purple-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all ${
+                      settings.membrainPanelFetch ? 'left-[22px]' : 'left-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between px-1">
+                  <div>
+                    <p className="text-[13px] font-bold text-gray-800">Ozen Hub Memory Fetch</p>
+                    <p className="text-[11px] text-gray-400 font-medium">Disable to stop the Hub from searching your history.</p>
+                  </div>
+                  <button
+                    onClick={() => setSettings(prev => ({ ...prev, membrainDeskFetch: !prev.membrainDeskFetch }))}
+                    className={`w-11 h-6 rounded-full transition-colors cursor-pointer relative ${
+                      settings.membrainDeskFetch ? 'bg-purple-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all ${
+                      settings.membrainDeskFetch ? 'left-[22px]' : 'left-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100 italic text-[11px] text-gray-500">
+                  Note: Memories will always be recorded to Membrain in the background regardless of these fetch settings.
                 </div>
               </div>
             </div>

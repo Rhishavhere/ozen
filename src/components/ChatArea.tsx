@@ -90,7 +90,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
           }
           return msg;
         }));
-      }
+      },
+      { source: 'desk' }
     );
 
     // Save conversation after AI response completes
