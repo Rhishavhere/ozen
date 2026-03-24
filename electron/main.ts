@@ -160,7 +160,10 @@ app.on('activate', () => {
 });
 
 ipcMain.on('hide-panel', () => {
-  if (panelWin) panelWin.hide();
+  if (panelWin) {
+    panelWin.blur(); // Blur first to encourage OS to return focus to previous app
+    panelWin.hide();
+  }
 });
 
 ipcMain.on('resize-panel', (_event, { width, height }) => {

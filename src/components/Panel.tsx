@@ -100,33 +100,41 @@ export const Panel: React.FC = () => {
     };
   }, []);
 
+  const getPlaceholder = () => {
+    if (isGenerating) return "Thinking..";
+    if (isExpanded) return "Ask Ozen";
+    return "apne mujhe yaad kiya?";
+  };
+
   return (
-    <div className="w-full h-full bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex flex-col overflow-hidden font-sans">
+    <div className="w-full h-full flex flex-col font-sans bg-transparent">
       
       {/* Expanding Chat Area */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 340, opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="w-full border-b border-gray-100 overflow-y-auto px-4 py-4 scroll-smooth flex-1 bg-gray-50/50"
+            className="w-full flex-1 mb-3 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 overflow-hidden flex flex-col"
           >
-             {messages.length === 0 ? (
-               <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
-                 Initializing connection...
-               </div>
-             ) : (
-               messages.map(msg => <Message key={msg.id} message={msg} />)
-             )}
-             <div ref={messagesEndRef} />
+            <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
+               {messages.length === 0 ? (
+                 <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
+                   Thinking...
+                 </div>
+               ) : (
+                 messages.map(msg => <Message key={msg.id} message={msg} />)
+               )}
+               <div ref={messagesEndRef} />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Input Bar */}
-      <div className="w-full flex-1 min-h-[50px] flex items-center px-4 bg-white">
+      <div className="w-full h-[60px] shrink-0 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 mt-auto">
         <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
         <form className="flex-1 flex" onSubmit={handleSubmit}>
           <input 
@@ -135,7 +143,7 @@ export const Panel: React.FC = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isGenerating}
-            placeholder={isGenerating ? "Ozen is thinking..." : "Ask Ozen..."}
+            placeholder={getPlaceholder()}
             className="flex-1 bg-transparent border-none outline-none text-black text-[15px] placeholder-gray-400 font-medium disabled:opacity-50"
           />
         </form>
@@ -144,7 +152,7 @@ export const Panel: React.FC = () => {
         ) : (
           <button 
             onClick={handleClose} 
-            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors p-1 shrink-0"
+            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors p-1 shrink-0 bg-gray-50 hover:bg-gray-100 rounded-full"
           >
             <X className="w-5 h-5" />
           </button>
