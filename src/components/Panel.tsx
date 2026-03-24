@@ -25,7 +25,7 @@ export const Panel: React.FC = () => {
   const handleCollapse = () => {
     setIsExpanded(false);
      // @ts-ignore
-    window.ipcRenderer?.send('resize-panel', { width: 400, height: 80 });
+    window.ipcRenderer?.send('resize-panel', { width: 400, height: 60 });
   };
 
   const handleClose = () => {
@@ -103,7 +103,7 @@ export const Panel: React.FC = () => {
   const getPlaceholder = () => {
     if (isGenerating) return "Thinking..";
     if (isExpanded) return "Ask Ozen";
-    return "apne mujhe yaad kiya?";
+    return "Felt like you thought of me 🙂";
   };
 
   return (
@@ -134,7 +134,7 @@ export const Panel: React.FC = () => {
       </AnimatePresence>
 
       {/* Input Bar */}
-      <div className="w-full h-[60px] shrink-0 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 mt-auto">
+      <div className="w-full h-[50px] shrink-0 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 mt-auto">
         <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
         <form className="flex-1 flex" onSubmit={handleSubmit}>
           <input 

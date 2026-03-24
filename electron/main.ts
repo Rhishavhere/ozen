@@ -114,7 +114,15 @@ let panelWin: BrowserWindow | null;
 
 function createPanelWindow(x: number, y: number) {
   if (panelWin) {
-    panelWin.setPosition(x, y);
+    if (panelWin.isMinimized()) panelWin.restore();
+    // Reset to collapsed size before positioning to prevent drift
+    panelWin.setBounds({
+      x: Math.max(0, x - 300),
+      y: Math.max(0, y - 40),
+      width: 400,
+      height: 60
+    });
+    panelWin.setAlwaysOnTop(true, 'screen-saver', 1);
     panelWin.show();
     panelWin.focus();
     return;
@@ -122,7 +130,7 @@ function createPanelWindow(x: number, y: number) {
 
   panelWin = new BrowserWindow({
     width: 400,
-    height: 80,
+    height: 60,
     x: Math.max(0, x - 300), // center roughly around cursor
     y: Math.max(0, y - 40),
     frame: false,
@@ -133,6 +141,9 @@ function createPanelWindow(x: number, y: number) {
       preload: path.join(__dirname, 'preload.mjs'),
     },
   });
+
+  panelWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  panelWin.setAlwaysOnTop(true, 'screen-saver', 1);
 
   if (VITE_DEV_SERVER_URL) {
     panelWin.loadURL(`${VITE_DEV_SERVER_URL}/#/panel`);
@@ -161,7 +172,9 @@ app.on('activate', () => {
 
 ipcMain.on('hide-panel', () => {
   if (panelWin) {
-    panelWin.blur(); // Blur first to encourage OS to return focus to previous app
+    // Minimizing before hiding is the "gold standard" on Windows 
+    // to force the OS to restore focus to the previously active application.
+    panelWin.minimize();
     panelWin.hide();
   }
 });
