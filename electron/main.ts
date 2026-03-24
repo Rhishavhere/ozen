@@ -207,6 +207,29 @@ ipcMain.on('hide-panel', () => {
   }
 });
 
+ipcMain.on('open-in-desk', (_event, { url }) => {
+  // If the Hub (main) window isn't open, create it
+  if (!win || win.isDestroyed()) {
+    createWindow();
+  }
+
+  // Once the window is ready, send the URL to open in the Browser tab
+  const sendUrl = () => {
+    if (win && !win.isDestroyed()) {
+      win.show();
+      win.focus();
+      win.webContents.send('navigate-browser', { url });
+    }
+  };
+
+  // If the window is still loading, wait for it
+  if (win && !win.isDestroyed() && win.webContents.isLoading()) {
+    win.webContents.once('did-finish-load', sendUrl);
+  } else {
+    sendUrl();
+  }
+});
+
 ipcMain.on('resize-panel', (_event, { width, height }) => {
   if (panelWin) {
     const currentBounds = panelWin.getBounds();

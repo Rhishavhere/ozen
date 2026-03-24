@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Maximize2 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { useOllama } from '../hooks/useOllama';
 import { useGroq } from '../hooks/useGroq';
@@ -7,6 +7,7 @@ import { Message as MessageType } from '../types/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from './Message';
 import { saveConversation, generateTitle, getSettings } from '../lib/store';
+import { addSearchEntry } from '../lib/searchHistory';
 
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -112,10 +113,19 @@ export const Panel: React.FC = () => {
       setBrowserUrl(url);
       setIsBrowserMode(true);
       setIsExpanded(true);
+
+      // Log to search history
+      addSearchEntry(input.trim(), url, isDuck ? 'duckduckgo' : 'google', 'panel');
       
       // @ts-ignore
       window.ipcRenderer?.send('resize-panel', { width: 800, height: 600 });
     }
+  };
+
+  const handleExpandToDesk = () => {
+    // @ts-ignore
+    window.ipcRenderer?.send('open-in-desk', { url: browserUrl });
+    handleClose();
   };
 
 
@@ -170,9 +180,20 @@ export const Panel: React.FC = () => {
             className="w-full flex-1 mb-3 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 overflow-hidden flex flex-col"
           >
             {isBrowserMode ? (
-              <div className="w-full h-full bg-white flex-1 relative rounded-2xl overflow-hidden p-[2px]">
+              <div className="w-full h-full bg-white flex-1 relative rounded-2xl overflow-hidden flex flex-col">
+                {/* Browser toolbar */}
+                <div className="flex items-center justify-end px-2 py-1.5 bg-gray-50 border-b border-gray-100">
+                  <button
+                    onClick={handleExpandToDesk}
+                    title="Open in Desk"
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-purple-600 bg-white border border-gray-200 rounded-lg px-2.5 py-1 hover:border-purple-200 hover:bg-purple-50 transition-all cursor-pointer"
+                  >
+                    <Maximize2 size={12} />
+                    Open in Desk
+                  </button>
+                </div>
                 {/* @ts-ignore */}
-                <webview src={browserUrl} className="w-full h-full border-none rounded-[14px]" />
+                <webview src={browserUrl} className="w-full flex-1 border-none" />
               </div>
             ) : (
               <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { MessageSquare, Users, Cpu, Zap, Clock, Activity, BarChart2, Shield, Search } from 'lucide-react';
+import { MessageSquare, Users, Cpu, Zap, Clock, Activity, BarChart2, Shield, Search, Globe, Trash2 } from 'lucide-react';
 import { Conversation } from '../../../types/chat';
 import { getConversations, getSettings, saveSettings } from '../../../lib/store';
 import { getUsageStats, getTokenGraphData } from '../../../lib/rateLimit';
+import { getSearchHistory, addSearchEntry, clearSearchHistory, SearchEntry } from '../../../lib/searchHistory';
 import wallpaper from '../../../assets/wallpaper.png';
 
 interface DashboardViewProps {
@@ -16,6 +17,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
   const [settings, setSettings] = useState(getSettings());
   const [stats, setStats] = useState(getUsageStats());
   const [tokenHistory, setTokenHistory] = useState(getTokenGraphData(10));
+  const [searchHist, setSearchHist] = useState<SearchEntry[]>(getSearchHistory());
 
   useEffect(() => {
     setConversations(getConversations());
@@ -24,6 +26,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
       setSettings(getSettings());
       setStats(getUsageStats());
       setTokenHistory(getTokenGraphData(10));
+      setSearchHist(getSearchHistory());
     }, 2000);
     return () => clearInterval(iv);
   }, []);
@@ -42,6 +45,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
     const isDuck = settings.deskSearchEngine === 'duckduckgo';
     const baseUrl = isDuck ? 'https://duckduckgo.com/?q=' : 'https://www.google.com/search?q=';
     const url = `${baseUrl}${encodeURIComponent(searchQuery.trim())}`;
+    addSearchEntry(searchQuery.trim(), url, isDuck ? 'duckduckgo' : 'google', 'desk');
+    setSearchHist(getSearchHistory());
     onNavigate?.('browser', { url });
   };
 
@@ -57,10 +62,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
   };
 
   const getGreeting = () => {
-    const hr = new Date().getHours();
-    if (hr < 12) return 'Good Morning';
-    if (hr < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    return 'Ozen for any knowledge work';
   };
 
   const recentChats = conversations.slice(0, 4);
@@ -97,7 +99,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
 
           {/* Foreground */}
           <div className="z-10 w-full max-w-2xl text-center">
-            <h1 className="text-[26px] font-bold text-white tracking-tight mb-2 drop-shadow-sm">
+            <h1 className="text-[26px] text-white tracking-tight mb-2 drop-shadow-sm">
               {getGreeting()}, {settings.userName}
             </h1>
 
@@ -241,10 +243,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
 
         </div>
 
-        {/* Content Area: Recent Chats & Quick Actions */}
+        {/* Content Area: Recent Chats, Search History & Quick Actions */}
         <div className="grid grid-cols-3 gap-8">
           
-          <div className="col-span-2">
+          <div className="col-span-2 space-y-8">
+            {/* Recent Conversations */}
+            <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[16px] font-bold text-gray-900">Recent Conversations</h2>
               <button
@@ -293,6 +297,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 ))}
               </div>
             )}
+            </div>
+
+            {/* Web Search History */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[16px] font-bold text-gray-900">Search History</h2>
+                {searchHist.length > 0 && (
+                  <button
+                    onClick={() => { clearSearchHistory(); setSearchHist([]); }}
+                    className="flex items-center gap-1 text-[12px] font-semibold text-red-500 hover:text-red-600 transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={12} /> Clear
+                  </button>
+                )}
+              </div>
+
+              {searchHist.length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-100 p-6 flex flex-col items-center justify-center text-gray-400 h-28">
+                  <Globe size={20} strokeWidth={1.5} className="mb-2 opacity-50" />
+                  <p className="text-[12px] font-semibold text-gray-500">No searches yet</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {searchHist.slice(0, 8).map(entry => (
+                    <div
+                      key={entry.id}
+                      onClick={() => onNavigate?.('browser', { url: entry.url })}
+                      className="bg-white rounded-xl border border-gray-100 px-3 py-2.5 hover:shadow-sm hover:border-gray-200 transition-all duration-200 cursor-pointer group flex items-center gap-3"
+                    >
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                        entry.source === 'panel' ? 'bg-amber-50 border border-amber-100' : 'bg-blue-50 border border-blue-100'
+                      }`}>
+                        <Search size={13} className={entry.source === 'panel' ? 'text-amber-500' : 'text-blue-500'} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-gray-800 truncate leading-tight group-hover:text-purple-600 transition-colors">{entry.query}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
+                            <Clock size={10} /> {timeAgo(entry.timestamp)}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            entry.source === 'panel' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                          }`}>
+                            {entry.source === 'panel' ? 'Panel' : 'Desk'}
+                          </span>
+                          <span className="text-[9px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded capitalize">
+                            {entry.engine}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="col-span-1">
