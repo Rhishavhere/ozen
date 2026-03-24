@@ -51,7 +51,7 @@ let orbTimeout: NodeJS.Timeout;
 let trackInterval: NodeJS.Timeout | null = null;
 
 function createOrbWindow() {
-  const size = 100; // Larger window to allow the "zoop" animation space to breathe without clipping
+  const size = 60; // Larger window to allow the "zoop" animation space to breathe without clipping
   
   const getPosition = () => {
     const point = screen.getCursorScreenPoint();
@@ -78,6 +78,8 @@ function createOrbWindow() {
         preload: path.join(__dirname, "preload.mjs")
       }
     });
+
+    orbWin.setIgnoreMouseEvents(true);
 
     if (VITE_DEV_SERVER_URL) {
       orbWin.loadURL(`${VITE_DEV_SERVER_URL}/#/orb`);
