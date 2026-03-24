@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChatArea } from './components/ChatArea';
+import { HubLayout } from './components/Hub/HubLayout';
 import { Panel } from './components/Panel';
 import { Orb } from './components/Orb';
 
@@ -29,9 +29,7 @@ function App() {
   }
 
   return (
-    <div className="w-screen h-screen m-0 p-0 overflow-hidden font-sans bg-white">
-      <ChatArea />
-    </div>
+    <HubLayout />
   );
 }
 
