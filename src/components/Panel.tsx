@@ -142,11 +142,25 @@ export const Panel: React.FC = () => {
   }, [messages, isGenerating]);
 
   useEffect(() => {
-    const handleFocus = () => {
-      // Small delay ensures the Electron window is fully visible and ready
-      setTimeout(() => {
-        inputRef.current?.focus();
+    // Aggressive retry-loop focus: tries every 50ms for up to 500ms
+    // Stops as soon as the input is actually the active element
+    const forceFocus = () => {
+      let attempts = 0;
+      const maxAttempts = 10; // 10 × 50ms = 500ms max
+      const interval = setInterval(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          if (document.activeElement === inputRef.current || attempts >= maxAttempts) {
+            clearInterval(interval);
+          }
+        }
+        attempts++;
+        if (attempts >= maxAttempts) clearInterval(interval);
       }, 50);
+    };
+
+    const handleFocus = () => {
+      forceFocus();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -154,16 +168,26 @@ export const Panel: React.FC = () => {
         handleClose();
       }
     };
+
+    // Listen for explicit IPC activation signal from main process
+    // @ts-ignore
+    const onActivated = () => {
+      forceFocus();
+    };
+    // @ts-ignore
+    window.ipcRenderer?.on('panel-activated', onActivated);
     
     window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
     
     // Initial call
-    handleFocus();
+    forceFocus();
 
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('keydown', handleKeyDown);
+      // @ts-ignore
+      window.ipcRenderer?.off('panel-activated', onActivated);
     };
   }, []);
 

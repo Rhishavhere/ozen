@@ -155,6 +155,8 @@ function createPanelWindow(x: number, y: number) {
     panelWin.setAlwaysOnTop(true, 'screen-saver', 1);
     panelWin.show();
     panelWin.focus();
+    panelWin.webContents.focus();
+    panelWin.webContents.send('panel-activated');
     return;
   }
 
@@ -178,6 +180,15 @@ function createPanelWindow(x: number, y: number) {
   } else {
     panelWin.loadFile(path.join(RENDERER_DIST, 'index.html'), { hash: '/panel' });
   }
+
+  // Once the panel renderer is ready, grab focus aggressively
+  panelWin.webContents.once('did-finish-load', () => {
+    if (panelWin && !panelWin.isDestroyed()) {
+      panelWin.focus();
+      panelWin.webContents.focus();
+      panelWin.webContents.send('panel-activated');
+    }
+  });
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
