@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { HubLayout } from './components/Hub/HubLayout';
+import { HubLayout } from './components/Desk/HubLayout';
 import { Panel } from './components/Panel';
 import { Orb } from './components/Orb';
 

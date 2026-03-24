@@ -3,7 +3,6 @@ import {
   Users, Wrench, Sparkles, 
   Settings, Cpu, ChevronDown
 } from 'lucide-react';
-import logo from '../../assets/logo.svg';
 
 export type TabId = 'dashboard' | 'chat' | 'history' | 'browser' | 'agents' | 'functions' | 'features' | 'settings';
 
@@ -50,19 +49,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   };
 
   return (
-    <div className="w-[240px] h-full flex flex-col bg-[#F8F9FA] border-r border-gray-200/80 shrink-0 font-sans">
-      {/* Brand Header — sits in the title bar zone */}
-      <div className="h-[38px] flex items-center px-5 shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-        <img src={logo} alt="Ozen" className="w-5 h-5 mr-2.5" />
-        <span className="text-[15px] font-bold text-gray-900 tracking-tight">Ozen</span>
-      </div>
-
+    <div className="w-full h-full flex flex-col bg-[#F8F9FA] shrink-0 font-sans">
       {/* Profile Card */}
-      <div className="px-4 pt-4 pb-2">
+      <div className="px-4 pt-5 pb-2">
         <div className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200/80 transition-all cursor-pointer group"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+          <div className="w-8 h-8 rounded-full bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
             R
           </div>
           <div className="flex-1 min-w-0">

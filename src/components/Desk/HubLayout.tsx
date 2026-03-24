@@ -36,19 +36,13 @@ export const HubLayout: React.FC = () => {
   };
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-white overflow-hidden font-sans">
+    <div className="w-screen h-screen flex flex-col bg-white overflow-hidden font-sans border border-gray-300">
       {/* Custom Title Bar Row */}
-      <div className="flex shrink-0">
-        {/* Sidebar header zone (brand name) lives inside Sidebar, synced height */}
-        <div className="w-[240px] shrink-0" />
-        {/* The actual draggable title bar for the content area */}
-        <TitleBar />
-      </div>
+      <TitleBar />
 
       {/* Main Content Row */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar sits below its header zone, taking full remaining height */}
-        <div className="w-[240px] shrink-0 -mt-[38px]">
+        <div className="w-[240px] shrink-0 border-r border-gray-200">
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
         <main className="flex-1 h-full overflow-hidden">
