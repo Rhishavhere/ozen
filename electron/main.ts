@@ -1,0 +1,131 @@
+import { app, BrowserWindow, screen } from 'electron'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+import { uIOhook } from 'uiohook-napi'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// The built directory structure
+//
+// ├─┬─┬ dist
+// │ │ └── index.html
+// │ │
+// │ ├─┬ dist-electron
+// │ │ ├── main.js
+// │ │ └── preload.mjs
+// │
+process.env.APP_ROOT = path.join(__dirname, '..')
+
+// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
+export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
+export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
+
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+
+let win: BrowserWindow | null
+
+function createWindow() {
+  win = new BrowserWindow({
+    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.mjs'),
+    },
+  })
+
+  // Test active push message to Renderer-process.
+  win.webContents.on('did-finish-load', () => {
+    win?.webContents.send('main-process-message', (new Date).toLocaleString())
+  })
+
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL)
+  } else {
+    // win.loadFile('dist/index.html')
+    win.loadFile(path.join(RENDERER_DIST, 'index.html'))
+  }
+}
+
+let panelWin: BrowserWindow | null;
+
+function createPanelWindow(x: number, y: number) {
+  if (panelWin) {
+    panelWin.setPosition(x, y);
+    panelWin.show();
+    return;
+  }
+
+  panelWin = new BrowserWindow({
+    width: 600,
+    height: 80,
+    x: Math.max(0, x - 300), // center roughly around cursor
+    y: Math.max(0, y - 40),
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.mjs'),
+    },
+  });
+
+  if (VITE_DEV_SERVER_URL) {
+    panelWin.loadURL(`${VITE_DEV_SERVER_URL}/#/panel`);
+  } else {
+    panelWin.loadFile(path.join(RENDERER_DIST, 'index.html'), { hash: '/panel' });
+  }
+
+  panelWin.on('blur', () => {
+    panelWin?.hide();
+  });
+}
+
+// Quit when all windows are closed, except on macOS. There, it's common
+// for applications and their menu bar to stay active until the user quits
+// explicitly with Cmd + Q.
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit()
+    win = null
+  }
+})
+
+app.on('activate', () => {
+  // On OS X it's common to re-create a window in the app when the
+  // dock icon is clicked and there are no other windows open.
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
+  }
+})
+
+app.whenReady().then(() => {
+  createWindow()
+
+  // Track key sequence for "ozen"
+  // UiohookKey: O = 24, Z = 44, E = 18, N = 49
+  let buffer: number[] = [];
+  const TARGET = [24, 44, 18, 49]; 
+  const IGNORED_KEYS = [42, 54, 29, 3613, 56, 3640, 3675, 3676]; // Shift, Ctrl, Alt, Meta
+  
+  uIOhook.on("keydown", (e) => {
+    if (IGNORED_KEYS.includes(e.keycode)) return;
+
+    buffer.push(e.keycode);
+    if (buffer.length > 4) buffer.shift();
+    
+    if (buffer.length === 4) {
+      const isTarget = buffer.every((val, index) => val === TARGET[index]);
+      if (isTarget) {
+        buffer = []; // Clear buffer
+        const point = screen.getCursorScreenPoint();
+        createPanelWindow(point.x, point.y + 20);
+      }
+    }
+  });
+
+  uIOhook.start();
+})
+
+app.on('before-quit', () => {
+  uIOhook.stop();
+})
