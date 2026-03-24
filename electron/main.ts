@@ -155,6 +155,7 @@ function createPanelWindow(x: number, y: number) {
     skipTaskbar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
+      webviewTag: true,
     },
   });
 

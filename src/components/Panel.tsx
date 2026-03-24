@@ -14,6 +14,8 @@ export const Panel: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isBrowserMode, setIsBrowserMode] = useState(false);
+  const [browserUrl, setBrowserUrl] = useState('');
   const [conversationId] = useState(() => Date.now().toString());
 
   const settings = getSettings();
@@ -61,6 +63,8 @@ export const Panel: React.FC = () => {
       setMessages([]);
       handleCollapse();
       setInput('');
+      setIsBrowserMode(false);
+      setBrowserUrl('');
     }, 300);
   };
 
@@ -97,6 +101,21 @@ export const Panel: React.FC = () => {
     );
   };
 
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      if (!input.trim() || isGenerating) return;
+
+      const url = `https://www.google.com/search?q=${encodeURIComponent(input.trim())}`;
+      setBrowserUrl(url);
+      setIsBrowserMode(true);
+      setIsExpanded(true);
+      
+      // @ts-ignore
+      window.ipcRenderer?.send('resize-panel', { width: 800, height: 600 });
+    }
+  };
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,7 +149,8 @@ export const Panel: React.FC = () => {
 
   const getPlaceholder = () => {
     if (isGenerating) return "Thinking..";
-    if (isExpanded) return "Ask Ozen";
+    if (isExpanded && !isBrowserMode) return "Ask Ozen";
+    if (isBrowserMode) return "Search Google";
     return "Felt like you thought of me 🙂";
   };
 
@@ -147,16 +167,23 @@ export const Panel: React.FC = () => {
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
             className="w-full flex-1 mb-3 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 overflow-hidden flex flex-col"
           >
-            <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
-               {messages.length === 0 ? (
-                 <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
-                   Thinking...
-                 </div>
-               ) : (
-                 messages.map(msg => <Message key={msg.id} message={msg} />)
-               )}
-               <div ref={messagesEndRef} />
-            </div>
+            {isBrowserMode ? (
+              <div className="w-full h-full bg-white flex-1 relative rounded-2xl overflow-hidden p-[2px]">
+                {/* @ts-ignore */}
+                <webview src={browserUrl} className="w-full h-full border-none rounded-[14px]" />
+              </div>
+            ) : (
+              <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
+                 {messages.length === 0 ? (
+                   <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
+                     Thinking...
+                   </div>
+                 ) : (
+                   messages.map(msg => <Message key={msg.id} message={msg} />)
+                 )}
+                 <div ref={messagesEndRef} />
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -170,6 +197,7 @@ export const Panel: React.FC = () => {
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             disabled={isGenerating}
             placeholder={getPlaceholder()}
             className="flex-1 bg-transparent border-none outline-none text-black text-[15px] placeholder-gray-400 font-medium disabled:opacity-50"
