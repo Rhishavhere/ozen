@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Message, OllamaModel } from "../types/chat";
 import { logUsage } from "../lib/rateLimit";
-import { searchMemories, addMemory } from "../lib/membrain"; // ← NEW
+import { searchMemories, addMemory, getTimeTags } from "../lib/membrain";
 
 const OLLAMA_URL = "http://localhost:11434";
 
@@ -51,8 +51,9 @@ export function useOllama() {
         : messages;
 
       // ── MEMBRAIN: Store user message in background ────────────────────────
+      const timeTags = getTimeTags();
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message"]);
+        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message", ...timeTags]);
       }
       // ─────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,14 @@ export function useOllama() {
 
       const estimatedTokens = Math.max(1, Math.ceil(fullContent.length / 4));
       logUsage(estimatedTokens);
+
+      // ── MEMBRAIN: Store AI response in background ──────────────────────────
+      if (fullContent.trim()) {
+        addMemory(
+          `[AI Response to "${lastUserMsg?.content?.slice(0, 80) || 'unknown'}"] ${fullContent.slice(0, 2000)}`,
+          ["source.ollama", "type.ai-response", `model.${modelName}`, ...timeTags]
+        );
+      }
     } catch (err: any) {
       setError(err.message || "Error during generation");
     } finally {

@@ -16,6 +16,29 @@ function headers() {
 }
 
 /**
+ * Generate time-bucket tags for temporal querying.
+ * Returns tags like: day.2026-03-25, week.2026-W13, month.2026-03
+ */
+export function getTimeTags(): string[] {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+
+  // ISO week number calculation
+  const jan1 = new Date(yyyy, 0, 1);
+  const dayOfYear = Math.floor((now.getTime() - jan1.getTime()) / 86400000) + 1;
+  const weekNum = Math.ceil((dayOfYear + jan1.getDay()) / 7);
+  const ww = String(weekNum).padStart(2, "0");
+
+  return [
+    `day.${yyyy}-${mm}-${dd}`,
+    `week.${yyyy}-W${ww}`,
+    `month.${yyyy}-${mm}`,
+  ];
+}
+
+/**
  * Search memories and return a ready-to-inject system prompt string.
  * Returns empty string if Membrain is not configured or search fails.
  */

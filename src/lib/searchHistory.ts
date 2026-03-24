@@ -1,4 +1,6 @@
 // ─── Web Search History ─────────────────────────────
+import { addMemory, getTimeTags } from './membrain';
+
 export interface SearchEntry {
   id: string;
   query: string;
@@ -34,6 +36,12 @@ export function addSearchEntry(query: string, url: string, engine: 'google' | 'd
   history.unshift(entry);
   if (history.length > MAX_ENTRIES) history.length = MAX_ENTRIES;
   localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+
+  // ── MEMBRAIN: Store web search in background ──────────────────────────
+  addMemory(
+    `User searched "${query}" on ${engine} via ${source}`,
+    ["type.web-search", `source.${source}`, `engine.${engine}`, ...getTimeTags()]
+  );
 }
 
 export function clearSearchHistory(): void {

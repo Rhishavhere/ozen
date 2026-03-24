@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Message } from "../types/chat";
 import { logUsage } from "../lib/rateLimit";
-import { searchMemories, addMemory } from "../lib/membrain"; // ← NEW
+import { searchMemories, addMemory, getTimeTags } from "../lib/membrain";
 
 export function useGroq() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -50,8 +50,9 @@ export function useGroq() {
         : messages;
 
       // ── MEMBRAIN: Store user message in background ────────────────────────
+      const timeTags = getTimeTags();
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.groq", "type.user-message"]);
+        addMemory(lastUserMsg.content, ["source.groq", "type.user-message", ...timeTags]);
       }
       // ─────────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,14 @@ export function useGroq() {
         totalTokens += Math.ceil(responseText.length / 4);
       }
       logUsage(totalTokens);
+
+      // ── MEMBRAIN: Store AI response in background ──────────────────────────
+      if (responseText.trim()) {
+        addMemory(
+          `[AI Response to "${lastUserMsg?.content?.slice(0, 80) || 'unknown'}"] ${responseText.slice(0, 2000)}`,
+          ["source.groq", "type.ai-response", `model.${model}`, ...timeTags]
+        );
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Unknown error communicating with Groq API");
