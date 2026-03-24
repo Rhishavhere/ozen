@@ -1,11 +1,28 @@
 import React, { useEffect, useRef } from 'react';
-import { Bot, Search } from 'lucide-react';
+import { Bot, Search, X } from 'lucide-react';
 
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    const handleFocus = () => inputRef.current?.focus();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // @ts-ignore
+        window.ipcRenderer?.send('hide-panel');
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Initial focus call
+    handleFocus();
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   return (
@@ -18,6 +35,13 @@ export const Panel: React.FC = () => {
         className="flex-1 bg-transparent border-none outline-none text-black text-lg placeholder-gray-400 font-medium"
       />
       <Search className="w-5 h-5 text-gray-400 ml-2" />
+      <button 
+        // @ts-ignore
+        onClick={() => window.ipcRenderer?.send('hide-panel')} 
+        className="p-1 hover:bg-gray-100 rounded-lg ml-2 transition-colors cursor-pointer"
+      >
+        <X className="w-5 h-5 text-gray-400" />
+      </button>
     </div>
   );
 };

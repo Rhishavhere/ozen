@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { uIOhook } from 'uiohook-napi'
@@ -52,6 +52,7 @@ function createPanelWindow(x: number, y: number) {
   if (panelWin) {
     panelWin.setPosition(x, y);
     panelWin.show();
+    panelWin.focus();
     return;
   }
 
@@ -98,22 +99,27 @@ app.on('activate', () => {
   }
 })
 
+ipcMain.on('hide-panel', () => {
+  if (panelWin) panelWin.hide();
+});
+
 app.whenReady().then(() => {
   createWindow()
 
-  // Track key sequence for "ozen"
-  // UiohookKey: O = 24, Z = 44, E = 18, N = 49
+  // Track key sequence for "@ozen"
+  // Assuming keys: 2 (usually has @), o, z, e, n
+  // UiohookKey: 2 = 3, O = 24, Z = 44, E = 18, N = 49
   let buffer: number[] = [];
-  const TARGET = [24, 44, 18, 49]; 
+  const TARGET = [3, 24, 44, 18, 49]; 
   const IGNORED_KEYS = [42, 54, 29, 3613, 56, 3640, 3675, 3676]; // Shift, Ctrl, Alt, Meta
   
   uIOhook.on("keydown", (e) => {
     if (IGNORED_KEYS.includes(e.keycode)) return;
 
     buffer.push(e.keycode);
-    if (buffer.length > 4) buffer.shift();
+    if (buffer.length > 5) buffer.shift();
     
-    if (buffer.length === 4) {
+    if (buffer.length === 5) {
       const isTarget = buffer.every((val, index) => val === TARGET[index]);
       if (isTarget) {
         buffer = []; // Clear buffer
