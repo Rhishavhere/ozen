@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Save, Cpu, User, ChevronDown, Zap, Activity, Globe } from 'lucide-react';
+import { Save, Cpu, ChevronDown, Zap, Activity, Globe } from 'lucide-react';
 import { OzenSettings } from '../../../types/chat';
 import { getSettings, saveSettings } from '../../../lib/store';
 import { useOllama } from '../../../hooks/useOllama';
 import { useGroq } from '../../../hooks/useGroq';
 import { getUsageStats } from '../../../lib/rateLimit';
+import profile from '../../../assets/profile.png';
 
 export const SettingsView: React.FC = () => {
   const { models: ollamaModels } = useOllama();
@@ -131,13 +132,13 @@ export const SettingsView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* User Profile */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center">
-                  <User size={17} className="text-purple-500" />
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0 shadow-inner">
+                  <img src={profile} alt="Profile" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h2 className="text-[14px] font-bold text-gray-900">Profile</h2>
-                  <p className="text-[11px] text-gray-400 font-medium">Display name in Desk.</p>
+                  <h2 className="text-[15px] font-bold text-gray-900">Profile Configuration</h2>
+                  <p className="text-[12px] text-gray-400 font-medium">Your identity within the Ozen Hub.</p>
                 </div>
               </div>
               <input
