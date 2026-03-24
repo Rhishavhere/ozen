@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Message, OllamaModel } from '../types/chat';
+import { logUsage } from '../lib/rateLimit';
 
 const OLLAMA_URL = 'http://localhost:11434';
 
@@ -45,6 +46,8 @@ export function useOllama() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       
+      let fullContent = '';
+      
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -56,6 +59,7 @@ export function useOllama() {
           try {
             const parsed = JSON.parse(line);
             if (parsed.message?.content) {
+              fullContent += parsed.message.content;
               onChunk(parsed.message.content);
             }
           } catch (e) {
@@ -63,6 +67,11 @@ export function useOllama() {
           }
         }
       }
+
+      // Log telemetry usage
+      const estimatedTokens = Math.max(1, Math.ceil(fullContent.length / 4));
+      logUsage(estimatedTokens);
+
     } catch (err: any) {
       setError(err.message || 'Error during generation');
     } finally {

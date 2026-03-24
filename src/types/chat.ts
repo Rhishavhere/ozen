@@ -15,9 +15,11 @@ export interface Conversation {
 }
 
 export interface OzenSettings {
-  panelModel: string;      // Model the floating Panel uses (set from Desk)
+  provider: 'ollama' | 'groq'; // AI Provider
+  panelModel: string;          // Model the floating Panel uses (for Ollama)
+  groqModel: string;           // Model for Groq provider
   userName: string;
-  theme: 'light' | 'dark'; // Future use
+  theme: 'light' | 'dark';     // Future use
   ollamaUrl: string;
 }
 

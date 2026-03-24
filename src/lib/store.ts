@@ -6,7 +6,9 @@ const SETTINGS_KEY = 'ozen-settings';
 
 // ─── Defaults ──────────────────────────────────────
 const DEFAULT_SETTINGS: OzenSettings = {
+  provider: 'groq',
   panelModel: 'gemma3:1b',
+  groqModel: 'llama-3.1-8b-instant',
   userName: 'Rhishav',
   theme: 'light',
   ollamaUrl: 'http://localhost:11434',

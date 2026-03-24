@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { useOllama } from '../hooks/useOllama';
+import { useGroq } from '../hooks/useGroq';
 import { Message as MessageType } from '../types/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from './Message';
@@ -14,7 +15,15 @@ export const Panel: React.FC = () => {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [conversationId] = useState(() => Date.now().toString());
-  const { sendMessageStream, isGenerating } = useOllama();
+
+  const settings = getSettings();
+  const isGroq = settings.provider === 'groq';
+
+  const ollama = useOllama();
+  const groq = useGroq();
+
+  const isGenerating = isGroq ? groq.isGenerating : ollama.isGenerating;
+  const sendMessageStream = isGroq ? groq.sendMessageStream : ollama.sendMessageStream;
 
   const handleExpand = () => {
     if (!isExpanded) {
@@ -38,7 +47,7 @@ export const Panel: React.FC = () => {
       saveConversation({
         id: conversationId,
         title: firstUserMsg ? generateTitle(firstUserMsg.content) : 'Untitled Chat',
-        model: settings.panelModel,
+        model: settings.provider === 'groq' ? settings.groqModel : settings.panelModel,
         messages: messages,
         source: 'panel',
         createdAt: parseInt(conversationId),
@@ -75,7 +84,7 @@ export const Panel: React.FC = () => {
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
 
     await sendMessageStream(
-      settings.panelModel, // Read model from Desk settings
+      settings.provider === 'groq' ? settings.groqModel : settings.panelModel, // Read model from Desk settings
       [...messages, userMessage],
       (chunk) => {
         setMessages(prev => prev.map(msg => {

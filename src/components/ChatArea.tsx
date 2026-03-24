@@ -2,15 +2,26 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Info, Bot } from 'lucide-react';
 import { Message } from './Message';
 import { useOllama } from '../hooks/useOllama';
+import { useGroq } from '../hooks/useGroq';
 import { Message as MessageType } from '../types/chat';
-import { saveConversation, generateTitle, getConversationById } from '../lib/store';
+import { saveConversation, generateTitle, getConversationById, getSettings } from '../lib/store';
 
 interface ChatAreaProps {
   loadConversationId?: string | null;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
-  const { models, isGenerating, error, sendMessageStream } = useOllama();
+  const settings = getSettings();
+  const isGroq = settings.provider === 'groq';
+
+  const ollama = useOllama();
+  const groq = useGroq();
+
+  const models = isGroq ? groq.models : ollama.models;
+  const isGenerating = isGroq ? groq.isGenerating : ollama.isGenerating;
+  const error = isGroq ? groq.error : ollama.error;
+  const sendMessageStream = isGroq ? groq.sendMessageStream : ollama.sendMessageStream;
+
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [input, setInput] = useState('');
@@ -30,10 +41,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
 
 
   useEffect(() => {
-    if (models.length > 0 && !selectedModel) {
-      setSelectedModel(models[0].name);
+    if (models.length > 0 && !models.find(m => m.name === selectedModel)) {
+      setSelectedModel(isGroq ? settings.groqModel : models[0].name);
     }
-  }, [models, selectedModel]);
+  }, [models, isGroq, settings.groqModel, selectedModel]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -114,7 +125,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
             </select>
           ) : (
             <span className="text-sm font-semibold text-gray-500 flex items-center gap-2 pl-3 py-1">
-              <Loader2 className="w-5 h-5 animate-spin" /> Fetching locals...
+              <Loader2 className="w-5 h-5 animate-spin" /> Fetching models...
             </span>
           )}
         </div>
@@ -136,7 +147,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
                 <Bot className="w-10 h-10 text-gray-800" />
               </div>
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">How can I help you today?</h2>
-              <p className="text-sm text-gray-500">Pick an Ollama model from the top to begin</p>
+              <p className="text-sm text-gray-500">Pick a model from the top to begin</p>
             </div>
           ) : (
             <div className="w-full max-w-3xl pt-8">
@@ -157,7 +168,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isGenerating || models.length === 0}
-            placeholder={models.length === 0 ? "Connecting to Ollama..." : "Message Ollama..."}
+            placeholder={models.length === 0 ? "Connecting..." : `Message ${isGroq ? 'Groq' : 'Ollama'}...`}
             className="w-full bg-transparent resize-none max-h-[200px] min-h-[56px] pl-4 pr-12 py-4 outline-none text-gray-900 placeholder-gray-400 disabled:opacity-50"
             rows={1}
             style={{ overflowY: 'hidden' }}
@@ -176,7 +187,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
           </button>
         </form>
         <div className="text-center mt-3 text-xs text-gray-400">
-          Ollama runs completely locally on your machine.
+          {isGroq ? 'Powered by Groq LPU™ Inference Engine.' : 'Ollama runs completely locally on your machine.'}
         </div>
       </div>
     </div>
