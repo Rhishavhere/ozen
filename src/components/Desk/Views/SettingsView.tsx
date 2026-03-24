@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Save, Cpu, User, ChevronDown, Zap, Activity } from 'lucide-react';
+import { Save, Cpu, ChevronDown, Zap, Activity, Globe } from 'lucide-react';
 import { OzenSettings } from '../../../types/chat';
 import { getSettings, saveSettings } from '../../../lib/store';
 import { useOllama } from '../../../hooks/useOllama';
 import { useGroq } from '../../../hooks/useGroq';
 import { getUsageStats } from '../../../lib/rateLimit';
+import profile from '../../../assets/profile.png';
 
 export const SettingsView: React.FC = () => {
   const { models: ollamaModels } = useOllama();
@@ -131,13 +132,13 @@ export const SettingsView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* User Profile */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center">
-                  <User size={17} className="text-purple-500" />
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0 shadow-inner">
+                  <img src={profile} alt="Profile" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h2 className="text-[14px] font-bold text-gray-900">Profile</h2>
-                  <p className="text-[11px] text-gray-400 font-medium">Display name in Desk.</p>
+                  <h2 className="text-[15px] font-bold text-gray-900">Profile Configuration</h2>
+                  <p className="text-[12px] text-gray-400 font-medium">Your identity within the Ozen Hub.</p>
                 </div>
               </div>
               <input
@@ -147,6 +148,51 @@ export const SettingsView: React.FC = () => {
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[14px] text-gray-800 font-medium outline-none focus:border-purple-300 focus:bg-white transition-all"
                 placeholder="Your name"
               />
+            </div>
+
+            {/* Search Engines */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm overflow-hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                  <Globe size={17} className="text-blue-500" />
+                </div>
+                <div>
+                  <h2 className="text-[14px] font-bold text-gray-900">Web Search Engines</h2>
+                  <p className="text-[11px] text-gray-400 font-medium">Configure routing for web search features.</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Floating Panel</label>
+                  <div className="relative">
+                    <select
+                      value={settings.panelSearchEngine || 'google'}
+                      onChange={e => handleChange('panelSearchEngine', e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] text-gray-800 font-medium outline-none focus:border-purple-300 focus:bg-white transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="google">Google</option>
+                      <option value="duckduckgo">DuckDuckGo</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Ozen Hub (Desk)</label>
+                  <div className="relative">
+                    <select
+                      value={settings.deskSearchEngine || 'google'}
+                      onChange={e => handleChange('deskSearchEngine', e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] text-gray-800 font-medium outline-none focus:border-purple-300 focus:bg-white transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="google">Google</option>
+                      <option value="duckduckgo">DuckDuckGo</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Ollama URL */}

@@ -39,7 +39,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    const url = `https://www.google.com/search?q=${encodeURIComponent(searchQuery.trim())}`;
+    const isDuck = settings.deskSearchEngine === 'duckduckgo';
+    const baseUrl = isDuck ? 'https://duckduckgo.com/?q=' : 'https://www.google.com/search?q=';
+    const url = `${baseUrl}${encodeURIComponent(searchQuery.trim())}`;
     onNavigate?.('browser', { url });
   };
 
@@ -104,7 +106,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Google..."
+                placeholder={settings.deskSearchEngine === 'duckduckgo' ? "Search DuckDuckGo..." : "Search Google..."}
                 className="w-full bg-white/95 backdrop-blur-md border border-white/20 rounded-2xl pl-12 pr-4 py-3.5 text-[14px] text-gray-900 outline-none focus:ring-2 focus:ring-purple-400/50 focus:bg-white transition-all font-medium placeholder-gray-500 shadow-inner"
               />
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
