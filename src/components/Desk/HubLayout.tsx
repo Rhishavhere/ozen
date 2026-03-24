@@ -6,6 +6,7 @@ import { AgentsView } from './Views/AgentsView';
 import { DashboardView } from './Views/DashboardView';
 import { HistoryView } from './Views/HistoryView';
 import { BrowserView } from './Views/BrowserView';
+import { YourAIView } from './Views/YourAIView';
 import { SettingsView } from './Views/SettingsView';
 
 export const HubLayout: React.FC = () => {
@@ -53,6 +54,8 @@ export const HubLayout: React.FC = () => {
         return <SettingsView />;
       case 'browser':
         return <BrowserView key={browserUrl} initialUrl={browserUrl} />;
+      case 'yourai':
+        return <YourAIView />;
       case 'functions':
       case 'features':
         return (

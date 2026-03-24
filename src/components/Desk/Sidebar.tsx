@@ -1,12 +1,12 @@
 import { 
   LayoutDashboard, MessageSquare, History, Globe, 
-  Users, Wrench, Sparkles, 
+  Users, Wrench, Sparkles, Brain,
   Settings, Cpu, ChevronDown
 } from 'lucide-react';
 import { getSettings } from '../../lib/store';
 import profile from '../../assets/profile.png';
 
-export type TabId = 'dashboard' | 'chat' | 'history' | 'browser' | 'agents' | 'functions' | 'features' | 'settings';
+export type TabId = 'dashboard' | 'chat' | 'history' | 'browser' | 'yourai' | 'agents' | 'functions' | 'features' | 'settings';
 
 interface SidebarProps {
   activeTab: TabId;
@@ -18,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
     { id: 'browser' as const, label: 'Browser', icon: Globe },
+    { id: 'yourai' as const, label: 'Your AI', icon: Brain },
     { id: 'history' as const, label: 'History', icon: History },
   ];
 

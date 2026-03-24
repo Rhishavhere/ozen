@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from './Message';
 import { saveConversation, generateTitle, getSettings } from '../lib/store';
 import { addSearchEntry } from '../lib/searchHistory';
+import { getEffectivePrompt } from '../lib/aiProfiles';
 
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -88,9 +89,16 @@ export const Panel: React.FC = () => {
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
 
+    const systemPrompt = getEffectivePrompt('panel');
+    const messagesWithSystem = [
+      { id: 'system', role: 'system' as const, content: systemPrompt },
+      ...messages,
+      userMessage,
+    ];
+
     await sendMessageStream(
-      settings.provider === 'groq' ? settings.groqModel : settings.panelModel, // Read model from Desk settings
-      [...messages, userMessage],
+      settings.provider === 'groq' ? settings.groqModel : settings.panelModel,
+      messagesWithSystem,
       (chunk) => {
         setMessages(prev => prev.map(msg => {
           if (msg.id === assistantMessageId) {

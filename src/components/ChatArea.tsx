@@ -5,6 +5,7 @@ import { useOllama } from '../hooks/useOllama';
 import { useGroq } from '../hooks/useGroq';
 import { Message as MessageType } from '../types/chat';
 import { saveConversation, generateTitle, getConversationById, getSettings } from '../lib/store';
+import { getEffectivePrompt } from '../lib/aiProfiles';
 
 interface ChatAreaProps {
   loadConversationId?: string | null;
@@ -70,10 +71,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
 
+    const systemPrompt = getEffectivePrompt('desk');
+    const messagesWithSystem = [
+      { id: 'system', role: 'system' as const, content: systemPrompt },
+      ...messages,
+      userMessage,
+    ];
+
     let fullResponse = '';
     await sendMessageStream(
       selectedModel,
-      [...messages, userMessage],
+      messagesWithSystem,
       (chunk) => {
         fullResponse += chunk;
         setMessages(prev => prev.map(msg => {
