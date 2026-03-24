@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, nativeTheme } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -128,16 +128,29 @@ function createOrbWindow() {
 }
 let panelWin: BrowserWindow | null;
 
+function getClampedBounds(targetX: number, targetY: number, width: number, height: number, displayPoint: { x: number, y: number }) {
+  const display = screen.getDisplayNearestPoint(displayPoint);
+  const workArea = display.workArea;
+
+  let x = targetX;
+  let y = targetY;
+
+  if (x < workArea.x) x = workArea.x + 10;
+  if (x + width > workArea.x + workArea.width) x = (workArea.x + workArea.width) - width - 10;
+
+  if (y < workArea.y) y = workArea.y + 10;
+  if (y + height > workArea.y + workArea.height) y = (workArea.y + workArea.height) - height - 10;
+
+  return { x, y, width, height };
+}
+
 function createPanelWindow(x: number, y: number) {
+  const bounds = getClampedBounds(x - 300, y - 40, 400, 60, { x, y });
+
   if (panelWin) {
     if (panelWin.isMinimized()) panelWin.restore();
     // Reset to collapsed size before positioning to prevent drift
-    panelWin.setBounds({
-      x: Math.max(0, x - 300),
-      y: Math.max(0, y - 40),
-      width: 400,
-      height: 60
-    });
+    panelWin.setBounds(bounds);
     panelWin.setAlwaysOnTop(true, 'screen-saver', 1);
     panelWin.show();
     panelWin.focus();
@@ -145,10 +158,7 @@ function createPanelWindow(x: number, y: number) {
   }
 
   panelWin = new BrowserWindow({
-    width: 400,
-    height: 60,
-    x: Math.max(0, x - 300), // center roughly around cursor
-    y: Math.max(0, y - 40),
+    ...bounds,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -200,19 +210,17 @@ ipcMain.on('resize-panel', (_event, { width, height }) => {
   if (panelWin) {
     const currentBounds = panelWin.getBounds();
     // Expand upwards! Keep the bottom edge (the input bar) matching where the cursor was
-    const newY = currentBounds.y + currentBounds.height - height;
-    panelWin.setBounds({ 
-      x: currentBounds.x, 
-      y: newY, 
-      width: width, 
-      height: height 
-    }, true); // true for animation if OS supports it
+    const targetY = currentBounds.y + currentBounds.height - height;
+    const bounds = getClampedBounds(currentBounds.x, targetY, width, height, { x: currentBounds.x, y: currentBounds.y });
+    
+    panelWin.setBounds(bounds, true); // true for animation if OS supports it
   }
 });
 
 let tray: Tray | null = null;
 
 app.whenReady().then(() => {
+  nativeTheme.themeSource = 'light';
   // Spawn ollama serve in background quietly
   try {
     const ollamaProcess = spawn('ollama', ['serve'], { detached: true, stdio: 'ignore', windowsHide: true });

@@ -5,14 +5,19 @@ import { ChatArea } from '../ChatArea';
 import { AgentsView } from './Views/AgentsView';
 import { DashboardView } from './Views/DashboardView';
 import { HistoryView } from './Views/HistoryView';
+import { BrowserView } from './Views/BrowserView';
 import { SettingsView } from './Views/SettingsView';
 
 export const HubLayout: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [viewingConversationId, setViewingConversationId] = useState<string | null>(null);
+  const [browserUrl, setBrowserUrl] = useState<string>('https://www.google.com');
 
-  const handleNavigate = (tab: string) => {
+  const handleNavigate = (tab: string, state?: any) => {
     setActiveTab(tab as TabId);
+    if (tab === 'browser' && state?.url) {
+      setBrowserUrl(state.url);
+    }
   };
 
   const handleOpenChat = (conversationId?: string) => {
@@ -33,6 +38,7 @@ export const HubLayout: React.FC = () => {
       case 'settings':
         return <SettingsView />;
       case 'browser':
+        return <BrowserView key={browserUrl} initialUrl={browserUrl} />;
       case 'functions':
       case 'features':
         return (

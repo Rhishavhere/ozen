@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { MessageSquare, Users, Cpu, Zap, Clock, Activity, BarChart2, Shield } from 'lucide-react';
+import { MessageSquare, Users, Cpu, Zap, Clock, Activity, BarChart2, Shield, Search } from 'lucide-react';
 import { Conversation } from '../../../types/chat';
 import { getConversations, getSettings, saveSettings } from '../../../lib/store';
 import { getUsageStats, getTokenGraphData } from '../../../lib/rateLimit';
+import wallpaper from '../../../assets/wallpaper.png';
 
 interface DashboardViewProps {
-  onNavigate?: (tab: string) => void;
+  onNavigate?: (tab: string, state?: any) => void;
   onOpenChat?: (conversationId: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpenChat }) => {
+  const [searchQuery, setSearchQuery] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [settings, setSettings] = useState(getSettings());
   const [stats, setStats] = useState(getUsageStats());
@@ -33,6 +35,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
 
   const isGroq = settings.provider === 'groq';
   const totalMessages = conversations.reduce((sum, c) => sum + c.messages.length, 0);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const url = `https://www.google.com/search?q=${encodeURIComponent(searchQuery.trim())}`;
+    onNavigate?.('browser', { url });
+  };
 
   const timeAgo = (ts: number) => {
     const diff = Date.now() - ts;
@@ -73,17 +82,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
 
   return (
     <div className="w-full h-full overflow-y-auto custom-scrollbar bg-[#FCFCFD] font-sans pb-12">
-      <div className="max-w-5xl mx-auto px-8 py-8">
+      <div className="max-w-5xl mx-auto px-6 py-6 border-b border-transparent">
         
-        {/* Welcome Header & Engine Toggle */}
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-[28px] font-bold text-gray-900 tracking-tight mb-1">
+        {/* Search Hero Section */}
+        <div className="w-full h-[200px] rounded-3xl mb-6 relative overflow-hidden flex flex-col items-center justify-center p-8 shadow-sm border border-gray-200/50">
+          {/* Background Wallpaper */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${wallpaper})` }}
+          />
+          <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/10 to-black/40" />
+
+          {/* Foreground */}
+          <div className="z-10 w-full max-w-2xl text-center">
+            <h1 className="text-[26px] font-bold text-white tracking-tight mb-2 drop-shadow-sm">
               {getGreeting()}, {settings.userName}
             </h1>
-            <p className="text-[15px] text-gray-400 font-medium">Here's your realtime workspace telemetry.</p>
+
+            <form onSubmit={handleSearch} className="w-full relative shadow-lg mt-6">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Google..."
+                className="w-full bg-white/95 backdrop-blur-md border border-white/20 rounded-2xl pl-12 pr-4 py-3.5 text-[14px] text-gray-900 outline-none focus:ring-2 focus:ring-purple-400/50 focus:bg-white transition-all font-medium placeholder-gray-500 shadow-inner"
+              />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </form>
           </div>
-          
+        </div>
+
+        {/* Engine Toggle & Compact Stats Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[15px] font-bold text-gray-900">Workspace Overview</h2>
           <div className="flex bg-gray-50 border border-gray-200 rounded-xl p-1 shadow-sm shrink-0">
             <button
               onClick={() => handleProviderSwitch('groq')}
@@ -112,13 +143,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
             { label: 'Desk Chats', value: String(conversations.filter(c => c.source === 'desk').length), icon: Users, color: 'text-blue-600 bg-blue-50', trend: 'Created from Desk UI' },
             { label: 'Platform Mode', value: isGroq ? 'Cloud' : 'Local', icon: Cpu, color: 'text-emerald-600 bg-emerald-50', trend: isGroq ? 'Powered by Groq' : 'Running on Ollama' },
           ].map((stat, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 group cursor-default">
-              <div className="flex items-start justify-between mb-4">
-                <div className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center`}>
-                  <stat.icon size={18} />
+            <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 group cursor-default">
+              <div className="flex items-start justify-between mb-3">
+                <div className={`w-8 h-8 rounded-lg ${stat.color} flex items-center justify-center`}>
+                  <stat.icon size={15} />
                 </div>
               </div>
-              <p className="text-[22px] font-bold text-gray-900 leading-none mb-1 truncate">{stat.value}</p>
+              <p className="text-[18px] font-bold text-gray-900 leading-none mb-1.5 truncate">{stat.value}</p>
               <p className="text-[12px] text-gray-400 font-medium">{stat.label}</p>
               <p className="text-[11px] text-gray-400 mt-2 font-medium">{stat.trend}</p>
             </div>
@@ -129,13 +160,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
         <div className="grid grid-cols-4 gap-4 mb-8">
           
           {/* Card 1: Active Engine Info */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 relative overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 relative overflow-hidden">
             {isGroq && <div className="absolute top-0 right-0 w-16 h-16 bg-linear-to-bl from-orange-100 to-transparent blur-xl opacity-60"></div>}
-            <div className="flex items-start justify-between mb-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            <div className="flex items-start justify-between mb-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                 isGroq ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
               }`}>
-                {isGroq ? <Zap size={18} /> : <Cpu size={18} />}
+                {isGroq ? <Zap size={15} /> : <Cpu size={15} />}
               </div>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                 isGroq ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
@@ -150,18 +181,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
           </div>
 
           {/* Card 2: Live Token Graph (Fully Dynamic spanning 2 columns) */}
-          <div className="col-span-2 bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 flex flex-col justify-between">
+          <div className="col-span-2 bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 flex flex-col justify-between">
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
-                <BarChart2 size={16} className="text-blue-500" />
-                <span className="text-[13px] font-bold text-gray-800">Live Token Velocity (Last 10m)</span>
+                <BarChart2 size={15} className="text-blue-500" />
+                <span className="text-[12px] font-bold text-gray-800">Live Token Velocity</span>
               </div>
-              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md flex items-center gap-1.5 shadow-sm">
                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
                  LIVE
               </span>
             </div>
-            <div className="w-full h-12 relative flex items-end mt-2">
+            <div className="w-full h-10 relative flex items-end mt-1.5">
                {/* Custom SVG line graph using realtime token points */}
                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
                  <defs>
@@ -180,10 +211,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
           </div>
 
           {/* Card 3: Hardware / Rate Limit Ceilings */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 flex flex-col justify-between">
-             <div className="flex items-start justify-between mb-3">
-               <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-600 flex items-center justify-center border border-gray-100">
-                 <Shield size={18} />
+          <div className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 flex flex-col justify-between">
+             <div className="flex items-start justify-between mb-2">
+               <div className="w-8 h-8 rounded-lg bg-gray-50 text-gray-600 flex items-center justify-center border border-gray-100">
+                 <Shield size={15} />
                </div>
                <span className="text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">LIMITS</span>
              </div>
@@ -223,16 +254,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
             </div>
 
             {recentChats.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-100 p-8 flex flex-col items-center justify-center text-gray-400 h-48">
-                <MessageSquare size={28} strokeWidth={1.5} className="mb-3 opacity-50" />
-                <p className="text-[14px] font-semibold text-gray-500">No conversations yet</p>
-                <p className="text-[12px] mt-1">Type '@ozen' anywhere or open Chat to start.</p>
+              <div className="bg-white rounded-xl border border-gray-100 p-6 flex flex-col items-center justify-center text-gray-400 h-40">
+                <MessageSquare size={24} strokeWidth={1.5} className="mb-2 opacity-50" />
+                <p className="text-[13px] font-semibold text-gray-500">No conversations yet</p>
+                <p className="text-[11px] mt-1">Type '@ozen' anywhere or open Chat to start.</p>
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {recentChats.map(chat => (
-                  <div key={chat.id} onClick={() => onOpenChat?.(chat.id)} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 cursor-pointer group flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  <div key={chat.id} onClick={() => onOpenChat?.(chat.id)} className="bg-white rounded-xl border border-gray-100 p-3 hover:shadow-sm hover:border-gray-200 transition-all duration-200 cursor-pointer group flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                       chat.source === 'panel'
                         ? 'bg-amber-50 border border-amber-100 group-hover:bg-amber-100'
                         : 'bg-purple-50 border border-purple-100 group-hover:bg-purple-100'
@@ -273,10 +304,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 <button
                   key={i}
                   onClick={() => onNavigate?.(action.tab)}
-                  className="w-full bg-white rounded-xl border border-gray-100 p-4 text-left hover:shadow-md hover:border-gray-200/80 transition-all duration-200 group cursor-pointer flex items-center gap-4"
+                  className="w-full bg-white rounded-xl border border-gray-100 p-3 text-left hover:shadow-sm hover:border-gray-200 transition-all duration-200 group cursor-pointer flex items-center gap-3"
                 >
-                  <div className={`w-10 h-10 rounded-xl ${action.color} flex items-center justify-center shrink-0 border`}>
-                    <action.icon size={18} />
+                  <div className={`w-9 h-9 rounded-lg ${action.color} flex items-center justify-center shrink-0 border`}>
+                    <action.icon size={16} />
                   </div>
                   <div>
                     <h3 className="text-[13px] font-bold text-gray-800 mb-0.5 group-hover:text-purple-600 transition-colors">{action.label}</h3>
@@ -286,16 +317,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
               ))}
             </div>
             
-            {/* Realtime Raw Tracking Block */}
-            <div className="mt-4 p-4 rounded-xl bg-gray-900 border border-gray-800 text-white flex flex-col justify-between shadow-xl relative overflow-hidden group">
+             {/* Realtime Raw Tracking Block */}
+            <div className="mt-3 p-4 rounded-xl bg-gray-900 border border-gray-800 text-white flex flex-col justify-between shadow-lg relative overflow-hidden group">
                <div className="absolute top-0 right-0 w-24 h-24 bg-linear-to-bl from-purple-500/20 to-transparent blur-2xl rounded-full"></div>
-               <div className="flex items-center justify-between mb-3 opacity-80">
-                  <p className="text-[11px] font-bold text-gray-400 tracking-wider">LIVE TELEMETRY (1MIN)</p>
-                  <Activity size={14} className="text-gray-400" />
+               <div className="flex items-center justify-between mb-2 opacity-80">
+                  <p className="text-[10px] font-bold text-gray-400 tracking-wider">LIVE TELEMETRY (1MIN)</p>
+                  <Activity size={13} className="text-gray-400" />
                </div>
                <div className="flex items-end justify-between relative z-10">
                  <div>
-                    <p className="text-[20px] font-bold leading-none">{stats.rpm} <span className="text-[12px] font-normal text-gray-400 -ml-1">Req</span></p>
+                    <p className="text-[18px] font-bold leading-none">{stats.rpm} <span className="text-[11px] font-normal text-gray-400 -ml-1">Req</span></p>
                  </div>
                  <div className="w-px h-6 bg-gray-800"></div>
                  <div className="text-right">
