@@ -12,7 +12,7 @@ export const TitleBar: React.FC = () => {
       {/* Logo & Title */}
       <div className="flex items-center pl-4 h-full w-[240px] shrink-0">
         <img src={logo} alt="Ozen" className="w-[18px] h-[18px] mr-2.5 opacity-80" />
-        <span className="text-[13px] font-bold tracking-wide text-gray-800">Ozen</span>
+        <span className="text-[13px] font-bold tracking-wide text-gray-800">Ozen Desk</span>
       </div>
 
       {/* Spacer */}

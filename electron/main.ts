@@ -32,7 +32,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    icon: path.join(process.env.VITE_PUBLIC, 'logo.svg'),
     frame: false,
     titleBarStyle: 'hidden',
     autoHideMenuBar: true,

@@ -5,6 +5,7 @@ import { useOllama } from '../hooks/useOllama';
 import { Message as MessageType } from '../types/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from './Message';
+import { saveConversation, generateTitle, getSettings } from '../lib/store';
 
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -12,6 +13,7 @@ export const Panel: React.FC = () => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [conversationId] = useState(() => Date.now().toString());
   const { sendMessageStream, isGenerating } = useOllama();
 
   const handleExpand = () => {
@@ -29,13 +31,28 @@ export const Panel: React.FC = () => {
   };
 
   const handleClose = () => {
+    // Save conversation if there are messages
+    if (messages.length > 0) {
+      const firstUserMsg = messages.find(m => m.role === 'user');
+      const settings = getSettings();
+      saveConversation({
+        id: conversationId,
+        title: firstUserMsg ? generateTitle(firstUserMsg.content) : 'Untitled Chat',
+        model: settings.panelModel,
+        messages: messages,
+        source: 'panel',
+        createdAt: parseInt(conversationId),
+        updatedAt: Date.now(),
+      });
+    }
+
     // @ts-ignore
     window.ipcRenderer?.send('hide-panel');
     setTimeout(() => {
       setMessages([]);
       handleCollapse();
       setInput('');
-    }, 300); // Reset state after visually hidden
+    }, 300);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,6 +61,7 @@ export const Panel: React.FC = () => {
 
     handleExpand();
 
+    const settings = getSettings();
     const userMessage: MessageType = {
       id: Date.now().toString(),
       role: 'user',
@@ -57,7 +75,7 @@ export const Panel: React.FC = () => {
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
 
     await sendMessageStream(
-      "gemma3:1b", // Hardcoded per user request
+      settings.panelModel, // Read model from Desk settings
       [...messages, userMessage],
       (chunk) => {
         setMessages(prev => prev.map(msg => {
@@ -69,6 +87,7 @@ export const Panel: React.FC = () => {
       }
     );
   };
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -117,7 +136,7 @@ export const Panel: React.FC = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            className="w-full flex-1 mb-3 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 overflow-hidden flex flex-col"
+            className="w-full flex-1 mb-3 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 overflow-hidden flex flex-col"
           >
             <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
                {messages.length === 0 ? (

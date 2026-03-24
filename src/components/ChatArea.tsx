@@ -3,13 +3,31 @@ import { Send, Loader2, Info, Bot } from 'lucide-react';
 import { Message } from './Message';
 import { useOllama } from '../hooks/useOllama';
 import { Message as MessageType } from '../types/chat';
+import { saveConversation, generateTitle, getConversationById } from '../lib/store';
 
-export const ChatArea: React.FC = () => {
+interface ChatAreaProps {
+  loadConversationId?: string | null;
+}
+
+export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
   const { models, isGenerating, error, sendMessageStream } = useOllama();
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [conversationId] = useState(() => loadConversationId || `desk-${Date.now()}`);
+
+  // Load existing conversation if opening from history
+  useEffect(() => {
+    if (loadConversationId) {
+      const conv = getConversationById(loadConversationId);
+      if (conv) {
+        setMessages(conv.messages);
+        setSelectedModel(conv.model);
+      }
+    }
+  }, [loadConversationId]);
+
 
   useEffect(() => {
     if (models.length > 0 && !selectedModel) {
@@ -41,10 +59,12 @@ export const ChatArea: React.FC = () => {
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
 
+    let fullResponse = '';
     await sendMessageStream(
       selectedModel,
       [...messages, userMessage],
       (chunk) => {
+        fullResponse += chunk;
         setMessages(prev => prev.map(msg => {
           if (msg.id === assistantMessageId) {
             return { ...msg, content: msg.content + chunk };
@@ -53,7 +73,21 @@ export const ChatArea: React.FC = () => {
         }));
       }
     );
+
+    // Save conversation after AI response completes
+    const allMessages = [...messages, userMessage, { id: assistantMessageId, role: 'assistant' as const, content: fullResponse }];
+    const firstUserMsg = allMessages.find(m => m.role === 'user');
+    saveConversation({
+      id: conversationId,
+      title: firstUserMsg ? generateTitle(firstUserMsg.content) : 'Untitled Chat',
+      model: selectedModel,
+      messages: allMessages,
+      source: 'desk',
+      createdAt: parseInt(conversationId.replace('desk-', '')),
+      updatedAt: Date.now(),
+    });
   };
+
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

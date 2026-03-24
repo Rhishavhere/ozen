@@ -3,6 +3,7 @@ import {
   Users, Wrench, Sparkles, 
   Settings, Cpu, ChevronDown
 } from 'lucide-react';
+import { getSettings } from '../../lib/store';
 
 export type TabId = 'dashboard' | 'chat' | 'history' | 'browser' | 'agents' | 'functions' | 'features' | 'settings';
 
@@ -91,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
         <button className="w-full flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-gray-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200/80 transition-all cursor-pointer group">
           <Cpu size={16} className="mr-2.5 text-emerald-500 shrink-0" />
           <div className="flex flex-col items-start min-w-0 flex-1">
-            <span className="text-[12px] font-semibold text-gray-800 leading-tight truncate">gemma3:1b</span>
+          <span className="text-[12px] font-semibold text-gray-800 leading-tight truncate">{getSettings().panelModel}</span>
             <span className="text-[10px] text-gray-400 font-medium leading-tight">Ollama · Local</span>
           </div>
           <ChevronDown size={12} className="text-gray-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
