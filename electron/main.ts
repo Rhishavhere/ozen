@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { spawn } from 'node:child_process'
 import { uIOhook } from 'uiohook-napi'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -120,7 +121,7 @@ function createPanelWindow(x: number, y: number) {
   }
 
   panelWin = new BrowserWindow({
-    width: 600,
+    width: 400,
     height: 80,
     x: Math.max(0, x - 300), // center roughly around cursor
     y: Math.max(0, y - 40),
@@ -138,10 +139,6 @@ function createPanelWindow(x: number, y: number) {
   } else {
     panelWin.loadFile(path.join(RENDERER_DIST, 'index.html'), { hash: '/panel' });
   }
-
-  panelWin.on('blur', () => {
-    panelWin?.hide();
-  });
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -166,9 +163,31 @@ ipcMain.on('hide-panel', () => {
   if (panelWin) panelWin.hide();
 });
 
+ipcMain.on('resize-panel', (_event, { width, height }) => {
+  if (panelWin) {
+    const currentBounds = panelWin.getBounds();
+    // Expand upwards! Keep the bottom edge (the input bar) matching where the cursor was
+    const newY = currentBounds.y + currentBounds.height - height;
+    panelWin.setBounds({ 
+      x: currentBounds.x, 
+      y: newY, 
+      width: width, 
+      height: height 
+    }, true); // true for animation if OS supports it
+  }
+});
+
 let tray: Tray | null = null;
 
 app.whenReady().then(() => {
+  // Spawn ollama serve in background quietly
+  try {
+    const ollamaProcess = spawn('ollama', ['serve'], { detached: true, stdio: 'ignore', windowsHide: true });
+    ollamaProcess.unref();
+  } catch (e) {
+    console.error('Failed to start ollama background service:', e);
+  }
+
   createOrbWindow(); // Now opens the Orb instead of the Main window on launch
 
   // Create System Tray (Background Apps) Icon

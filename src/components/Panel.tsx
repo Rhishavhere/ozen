@@ -1,24 +1,99 @@
-import React, { useEffect, useRef } from 'react';
-import { Bot, Search, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Loader2, X } from 'lucide-react';
+import logo from '../assets/logo.svg';
+import { useOllama } from '../hooks/useOllama';
+import { Message as MessageType } from '../types/chat';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Message } from './Message';
 
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<MessageType[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { sendMessageStream, isGenerating } = useOllama();
+
+  const handleExpand = () => {
+    if (!isExpanded) {
+      setIsExpanded(true);
+       // @ts-ignore
+      window.ipcRenderer?.send('resize-panel', { width: 400, height: 400 });
+    }
+  };
+
+  const handleCollapse = () => {
+    setIsExpanded(false);
+     // @ts-ignore
+    window.ipcRenderer?.send('resize-panel', { width: 400, height: 80 });
+  };
+
+  const handleClose = () => {
+    // @ts-ignore
+    window.ipcRenderer?.send('hide-panel');
+    setTimeout(() => {
+      setMessages([]);
+      handleCollapse();
+      setInput('');
+    }, 300); // Reset state after visually hidden
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isGenerating) return;
+
+    handleExpand();
+
+    const userMessage: MessageType = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+
+    const assistantMessageId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
+
+    await sendMessageStream(
+      "gemma3:1b", // Hardcoded per user request
+      [...messages, userMessage],
+      (chunk) => {
+        setMessages(prev => prev.map(msg => {
+          if (msg.id === assistantMessageId) {
+            return { ...msg, content: msg.content + chunk };
+          }
+          return msg;
+        }));
+      }
+    );
+  };
 
   useEffect(() => {
-    const handleFocus = () => inputRef.current?.focus();
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // @ts-ignore
-        window.ipcRenderer?.send('hide-panel');
-      }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isGenerating]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      // Small delay ensures the Electron window is fully visible and ready
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    
     window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
     
-    // Initial focus call
+    // Initial call
     handleFocus();
-    
+
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('keydown', handleKeyDown);
@@ -26,22 +101,55 @@ export const Panel: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full h-full bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 overflow-hidden font-sans">
-      <Bot className="w-6 h-6 text-black mr-3" />
-      <input 
-        ref={inputRef}
-        type="text" 
-        placeholder="Hey this is Ozen. How can I help?"
-        className="flex-1 bg-transparent border-none outline-none text-black text-lg placeholder-gray-400 font-medium"
-      />
-      <Search className="w-5 h-5 text-gray-400 ml-2" />
-      <button 
-        // @ts-ignore
-        onClick={() => window.ipcRenderer?.send('hide-panel')} 
-        className="p-1 hover:bg-gray-100 rounded-lg ml-2 transition-colors cursor-pointer"
-      >
-        <X className="w-5 h-5 text-gray-400" />
-      </button>
+    <div className="w-full h-full bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex flex-col overflow-hidden font-sans">
+      
+      {/* Expanding Chat Area */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 340, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+            className="w-full border-b border-gray-100 overflow-y-auto px-4 py-4 scroll-smooth flex-1 bg-gray-50/50"
+          >
+             {messages.length === 0 ? (
+               <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
+                 Initializing connection...
+               </div>
+             ) : (
+               messages.map(msg => <Message key={msg.id} message={msg} />)
+             )}
+             <div ref={messagesEndRef} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Input Bar */}
+      <div className="w-full flex-1 min-h-[50px] flex items-center px-4 bg-white">
+        <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
+        <form className="flex-1 flex" onSubmit={handleSubmit}>
+          <input 
+            ref={inputRef}
+            type="text" 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isGenerating}
+            placeholder={isGenerating ? "Ozen is thinking..." : "Ask Ozen..."}
+            className="flex-1 bg-transparent border-none outline-none text-black text-[15px] placeholder-gray-400 font-medium disabled:opacity-50"
+          />
+        </form>
+        {isGenerating ? (
+          <Loader2 className="w-5 h-5 text-gray-400 ml-2 animate-spin shrink-0" />
+        ) : (
+          <button 
+            onClick={handleClose} 
+            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors p-1 shrink-0"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 };
