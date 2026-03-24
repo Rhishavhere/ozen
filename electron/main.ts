@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain } from 'electron'
+import { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { uIOhook } from 'uiohook-napi'
@@ -39,13 +39,41 @@ function createWindow() {
   })
 
   if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL)
+    win.loadURL(VITE_DEV_SERVER_URL);
   } else {
     // win.loadFile('dist/index.html')
-    win.loadFile(path.join(RENDERER_DIST, 'index.html'))
+    win.loadFile(path.join(RENDERER_DIST, "index.html"));
   }
 }
 
+let orbWin: BrowserWindow | null;
+
+function createOrbWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+  const size = 64; // Size of the floating orb
+
+  orbWin = new BrowserWindow({
+    width: size,
+    height: size,
+    x: width - size - 40, // 40px from right
+    y: height - size - 40, // 40px from bottom (above taskbar)
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.mjs")
+    }
+  });
+
+  if (VITE_DEV_SERVER_URL) {
+    orbWin.loadURL(`${VITE_DEV_SERVER_URL}/#/orb`);
+  } else {
+    orbWin.loadFile(path.join(RENDERER_DIST, "index.html"), { hash: "/orb" });
+  }
+}
 let panelWin: BrowserWindow | null;
 
 function createPanelWindow(x: number, y: number) {
@@ -95,16 +123,29 @@ app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
+    createOrbWindow();
   }
-})
+});
 
 ipcMain.on('hide-panel', () => {
   if (panelWin) panelWin.hide();
 });
 
+let tray: Tray | null = null;
+
 app.whenReady().then(() => {
-  createWindow()
+  createOrbWindow(); // Now opens the Orb instead of the Main window on launch
+
+  // Create System Tray (Background Apps) Icon
+  const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg');
+  tray = new Tray(nativeImage.createFromPath(iconPath));
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Open Ozen Hub', click: () => { createWindow() } },
+    { type: 'separator' },
+    { label: 'Quit Ozen', click: () => { app.quit() } }
+  ]);
+  tray.setToolTip('Ozen');
+  tray.setContextMenu(contextMenu);
 
   // Track key sequence for "@ozen"
   // Assuming keys: 2 (usually has @), o, z, e, n

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ChatArea } from './components/ChatArea';
 import { Panel } from './components/Panel';
+import { Orb } from './components/Orb';
 
 function App() {
   const [route, setRoute] = useState(window.location.hash);
@@ -15,6 +16,14 @@ function App() {
     return (
       <div className="w-screen h-screen m-0 overflow-hidden bg-transparent p-2">
         <Panel />
+      </div>
+    );
+  }
+
+  if (route === '#/orb') {
+    return (
+      <div className="w-screen h-screen m-0 overflow-hidden bg-transparent p-1">
+        <Orb />
       </div>
     );
   }
