@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS: OzenSettings = {
   userName: 'Rhishav',
   theme: 'light',
   ollamaUrl: 'http://localhost:11434',
+  panelSearchEngine: 'google',
+  deskSearchEngine: 'google',
 };
 
 // ─── Conversations ─────────────────────────────────

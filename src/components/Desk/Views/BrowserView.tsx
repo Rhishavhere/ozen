@@ -1,13 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, RotateCw, Home } from 'lucide-react';
+import { getSettings } from '../../../lib/store';
 
 interface BrowserViewProps {
   initialUrl?: string;
 }
 
-export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = 'https://www.google.com' }) => {
-  const [urlInput, setUrlInput] = useState(initialUrl);
-  const [currentUrl, setCurrentUrl] = useState(initialUrl);
+export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl }) => {
+  const defaultEngineUrl = getSettings().deskSearchEngine === 'duckduckgo' ? 'https://duckduckgo.com' : 'https://www.google.com';
+  const startUrl = initialUrl || defaultEngineUrl;
+  
+  const [urlInput, setUrlInput] = useState(startUrl);
+  const [currentUrl, setCurrentUrl] = useState(startUrl);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,8 +46,10 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = 'https://
   }, []);
 
   useEffect(() => {
-    setCurrentUrl(initialUrl);
-    setUrlInput(initialUrl);
+    if (initialUrl) {
+      setCurrentUrl(initialUrl);
+      setUrlInput(initialUrl);
+    }
   }, [initialUrl]);
 
   const handleGo = (e: React.FormEvent) => {
@@ -74,7 +80,8 @@ export const BrowserView: React.FC<BrowserViewProps> = ({ initialUrl = 'https://
   };
 
   const handleHome = () => {
-    setCurrentUrl('https://www.google.com');
+    const defaultEngineUrl = getSettings().deskSearchEngine === 'duckduckgo' ? 'https://duckduckgo.com' : 'https://www.google.com';
+    setCurrentUrl(defaultEngineUrl);
   };
 
   return (

@@ -16,8 +16,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   const workspaceItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
-    { id: 'history' as const, label: 'History', icon: History },
     { id: 'browser' as const, label: 'Browser', icon: Globe },
+    { id: 'history' as const, label: 'History', icon: History },
   ];
 
   const powerTools = [

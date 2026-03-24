@@ -106,7 +106,9 @@ export const Panel: React.FC = () => {
       e.preventDefault();
       if (!input.trim() || isGenerating) return;
 
-      const url = `https://www.google.com/search?q=${encodeURIComponent(input.trim())}`;
+      const isDuck = settings.panelSearchEngine === 'duckduckgo';
+      const baseUrl = isDuck ? 'https://duckduckgo.com/?q=' : 'https://www.google.com/search?q=';
+      const url = `${baseUrl}${encodeURIComponent(input.trim())}`;
       setBrowserUrl(url);
       setIsBrowserMode(true);
       setIsExpanded(true);
@@ -150,7 +152,7 @@ export const Panel: React.FC = () => {
   const getPlaceholder = () => {
     if (isGenerating) return "Thinking..";
     if (isExpanded && !isBrowserMode) return "Ask Ozen";
-    if (isBrowserMode) return "Search Google";
+    if (isBrowserMode) return settings.panelSearchEngine === 'duckduckgo' ? "Search DuckDuckGo" : "Search Google";
     return "Felt like you thought of me 🙂";
   };
 

@@ -21,6 +21,8 @@ export interface OzenSettings {
   userName: string;
   theme: 'light' | 'dark';     // Future use
   ollamaUrl: string;
+  panelSearchEngine?: 'google' | 'duckduckgo';
+  deskSearchEngine?: 'google' | 'duckduckgo';
 }
 
 export interface OllamaModel {
