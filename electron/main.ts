@@ -325,7 +325,8 @@ ipcMain.on('clip-text', (_event, text: string) => {
   
   // Wait for focus to return to the previous window then paste
   setTimeout(() => {
-    const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
+    // Send 5 backspaces to remove '@ozen' then paste
+    const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{BS}{BS}{BS}{BS}{BS}^v')`;
     spawn('powershell', ['-Command', psCommand]);
   }, 200);
 });
