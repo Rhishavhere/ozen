@@ -325,6 +325,7 @@ ipcMain.on('hide-panel', () => {
 ipcMain.on('clip-text', (_event, text: string) => {
   clipboard.writeText(text);
   if (panelWin) {
+    panelWin.webContents.send('panel-reset');
     panelWin.minimize();
     panelWin.hide();
   }

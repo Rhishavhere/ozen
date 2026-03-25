@@ -244,9 +244,20 @@ export const Panel: React.FC = () => {
     };
 
     // @ts-ignore
+    const onReset = () => {
+      setMessages([]);
+      handleCollapse();
+      setInput('');
+      setIsBrowserMode(false);
+      setBrowserUrl('');
+    };
+
+    // @ts-ignore
     window.ipcRenderer?.on('panel-activated', onActivated);
     // @ts-ignore
     window.ipcRenderer?.on('panel-query', onQuery);
+    // @ts-ignore
+    window.ipcRenderer?.on('panel-reset', onReset);
     
     window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
@@ -260,6 +271,8 @@ export const Panel: React.FC = () => {
       window.ipcRenderer?.off('panel-activated', onActivated);
       // @ts-ignore
       window.ipcRenderer?.off('panel-query', onQuery);
+      // @ts-ignore
+      window.ipcRenderer?.off('panel-reset', onReset);
     };
   }, []);
 
