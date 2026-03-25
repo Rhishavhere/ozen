@@ -1,7 +1,15 @@
+export interface ActiveWindowContext {
+  title: string;
+  owner: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  searchData?: {
+    imageUrls: string[];
+  };
 }
 
 export interface Conversation {
@@ -23,6 +31,8 @@ export interface OzenSettings {
   ollamaUrl: string;
   panelSearchEngine?: 'google' | 'duckduckgo';
   deskSearchEngine?: 'google' | 'duckduckgo';
+  membrainPanelFetch: boolean;
+  membrainDeskFetch: boolean;
 }
 
 export interface OllamaModel {

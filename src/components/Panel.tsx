@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Maximize2 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { useOllama } from '../hooks/useOllama';
 import { useGroq } from '../hooks/useGroq';
-import { Message as MessageType } from '../types/chat';
+import { ActiveWindowContext, Message as MessageType } from '../types/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from './Message';
 import { saveConversation, generateTitle, getSettings } from '../lib/store';
+import { addSearchEntry } from '../lib/searchHistory';
+import { getEffectivePrompt } from '../lib/aiProfiles';
 
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -17,6 +19,8 @@ export const Panel: React.FC = () => {
   const [isBrowserMode, setIsBrowserMode] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
   const [conversationId] = useState(() => Date.now().toString());
+  const [isSearching, setIsSearching] = useState(false);
+  const [activeWindow, setActiveWindow] = useState<ActiveWindowContext | null>(null);
 
   const settings = getSettings();
   const isGroq = settings.provider === 'groq';
@@ -31,7 +35,7 @@ export const Panel: React.FC = () => {
     if (!isExpanded) {
       setIsExpanded(true);
        // @ts-ignore
-      window.ipcRenderer?.send('resize-panel', { width: 400, height: 400 });
+      window.ipcRenderer?.send('resize-panel', { width: 500, height: 400 });
     }
   };
 
@@ -68,8 +72,8 @@ export const Panel: React.FC = () => {
     }, 300);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, triggerImageSearch: boolean = false) => {
+    e?.preventDefault();
     if (!input.trim() || isGenerating) return;
 
     handleExpand();
@@ -82,14 +86,48 @@ export const Panel: React.FC = () => {
     };
     
     setMessages(prev => [...prev, userMessage]);
+    
+    const query = input.trim();
     setInput('');
-
+    inputRef.current?.focus();
+    
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
 
+    if (triggerImageSearch) {
+      setIsSearching(true);
+      // @ts-ignore
+      window.ipcRenderer?.invoke('fetch-search-results', query).then((res: any) => {
+        console.log('Renderer received search results:', res);
+        if (res) {
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === assistantMessageId) {
+              return { ...msg, searchData: res };
+            }
+            return msg;
+          }));
+        }
+        setIsSearching(false);
+      }).catch((err: any) => {
+        console.error('Renderer failed to fetch search results:', err);
+        setIsSearching(false);
+      });
+    }
+
+    let systemPrompt = getEffectivePrompt('panel');
+    if (activeWindow) {
+      systemPrompt += `\n\n[SYSTEM CONTEXT]: The user is currently interacting with the application: "${activeWindow.owner}" and the window is titled: "${activeWindow.title}". ONLY use this context IF their query implies it or is vague (e.g. 'what does this code do?', 'summarize this page'). Do NOT mention the window context if it is irrelevant to their question.`;
+    }
+
+    const messagesWithSystem = [
+      { id: 'system', role: 'system' as const, content: systemPrompt },
+      ...messages,
+      userMessage,
+    ];
+
     await sendMessageStream(
-      settings.provider === 'groq' ? settings.groqModel : settings.panelModel, // Read model from Desk settings
-      [...messages, userMessage],
+      settings.provider === 'groq' ? settings.groqModel : settings.panelModel,
+      messagesWithSystem,
       (chunk) => {
         setMessages(prev => prev.map(msg => {
           if (msg.id === assistantMessageId) {
@@ -97,7 +135,8 @@ export const Panel: React.FC = () => {
           }
           return msg;
         }));
-      }
+      },
+      { source: 'panel' }
     );
   };
 
@@ -112,10 +151,22 @@ export const Panel: React.FC = () => {
       setBrowserUrl(url);
       setIsBrowserMode(true);
       setIsExpanded(true);
+
+      // Log to search history
+      addSearchEntry(input.trim(), url, isDuck ? 'duckduckgo' : 'google', 'panel');
       
       // @ts-ignore
       window.ipcRenderer?.send('resize-panel', { width: 800, height: 600 });
+    } else if (e.key === 'Enter' && e.altKey) {
+      e.preventDefault();
+      handleSubmit(undefined, true);
     }
+  };
+
+  const handleExpandToDesk = () => {
+    // @ts-ignore
+    window.ipcRenderer?.send('open-in-desk', { url: browserUrl });
+    handleClose();
   };
 
 
@@ -124,11 +175,32 @@ export const Panel: React.FC = () => {
   }, [messages, isGenerating]);
 
   useEffect(() => {
-    const handleFocus = () => {
-      // Small delay ensures the Electron window is fully visible and ready
-      setTimeout(() => {
-        inputRef.current?.focus();
+    if (!isGenerating && isExpanded && !isBrowserMode) {
+      // Slight delay to ensure the input is no longer disabled in the DOM
+      setTimeout(() => inputRef.current?.focus(), 10);
+    }
+  }, [isGenerating, isExpanded, isBrowserMode]);
+
+  useEffect(() => {
+    // Aggressive retry-loop focus: tries every 50ms for up to 500ms
+    // Stops as soon as the input is actually the active element
+    const forceFocus = () => {
+      let attempts = 0;
+      const maxAttempts = 10; // 10 × 50ms = 500ms max
+      const interval = setInterval(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          if (document.activeElement === inputRef.current || attempts >= maxAttempts) {
+            clearInterval(interval);
+          }
+        }
+        attempts++;
+        if (attempts >= maxAttempts) clearInterval(interval);
       }, 50);
+    };
+
+    const handleFocus = () => {
+      forceFocus();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -136,16 +208,29 @@ export const Panel: React.FC = () => {
         handleClose();
       }
     };
+
+    // Listen for explicit IPC activation signal from main process
+    // @ts-ignore
+    const onActivated = (_event: any, activeWin: ActiveWindowContext | null) => {
+      forceFocus();
+      if (activeWin) {
+        setActiveWindow(activeWin);
+      }
+    };
+    // @ts-ignore
+    window.ipcRenderer?.on('panel-activated', onActivated);
     
     window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
     
     // Initial call
-    handleFocus();
+    forceFocus();
 
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('keydown', handleKeyDown);
+      // @ts-ignore
+      window.ipcRenderer?.off('panel-activated', onActivated);
     };
   }, []);
 
@@ -153,7 +238,7 @@ export const Panel: React.FC = () => {
     if (isGenerating) return "Thinking..";
     if (isExpanded && !isBrowserMode) return "Ask Ozen";
     if (isBrowserMode) return settings.panelSearchEngine === 'duckduckgo' ? "Search DuckDuckGo" : "Search Google";
-    return "Felt like you thought of me 🙂";
+    return "Mujhe yaad kiya? 🙂";
   };
 
   return (
@@ -170,20 +255,40 @@ export const Panel: React.FC = () => {
             className="w-full flex-1 mb-3 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 overflow-hidden flex flex-col"
           >
             {isBrowserMode ? (
-              <div className="w-full h-full bg-white flex-1 relative rounded-2xl overflow-hidden p-[2px]">
+              <div className="w-full h-full bg-white flex-1 relative rounded-2xl overflow-hidden flex flex-col">
+                {/* Browser toolbar */}
+                <div className="flex items-center justify-end px-2 py-1.5 bg-gray-50 border-b border-gray-100">
+                  <button
+                    onClick={handleExpandToDesk}
+                    title="Open in Desk"
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-purple-600 bg-white border border-gray-200 rounded-lg px-2.5 py-1 hover:border-purple-200 hover:bg-purple-50 transition-all cursor-pointer"
+                  >
+                    <Maximize2 size={12} />
+                    Open in Desk
+                  </button>
+                </div>
                 {/* @ts-ignore */}
-                <webview src={browserUrl} className="w-full h-full border-none rounded-[14px]" />
+                <webview src={browserUrl} className="w-full flex-1 border-none" />
               </div>
             ) : (
-              <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
-                 {messages.length === 0 ? (
-                   <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
-                     Thinking...
-                   </div>
-                 ) : (
-                   messages.map(msg => <Message key={msg.id} message={msg} />)
-                 )}
-                 <div ref={messagesEndRef} />
+              <div className="w-full h-full relative flex flex-col overflow-hidden">
+                 <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
+                   {messages.length === 0 ? (
+                     <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
+                       Thinking...
+                     </div>
+                   ) : (
+                     messages.map(msg => <Message key={msg.id} message={msg} variant="minimal" />)
+                   )}
+                   
+                   {isSearching && messages.length > 0 && (
+                     <div className="flex items-center justify-start py-2 ml-4">
+                       <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+                     </div>
+                   )}
+                   
+                   <div ref={messagesEndRef} />
+                 </div>
               </div>
             )}
           </motion.div>
@@ -191,9 +296,27 @@ export const Panel: React.FC = () => {
       </AnimatePresence>
 
       {/* Input Bar */}
-      <div className="w-full h-[50px] shrink-0 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 mt-auto">
-        <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
-        <form className="flex-1 flex" onSubmit={handleSubmit}>
+      <div className="w-full flex flex-col shrink-0 mt-auto px-4 pb-4">
+        {/* Dynamic Context Pill */}
+        <AnimatePresence>
+          {activeWindow && !isExpanded && messages.length === 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              className="flex items-center gap-1.5 self-start mb-2 px-3 py-1 bg-white/60 backdrop-blur-md border border-white/40 rounded-full shadow-xs"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+              <span className="text-[10px] font-semibold text-gray-500 tracking-wide uppercase">
+                Using {activeWindow.owner}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="w-full h-[50px] bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 relative z-10">
+          <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
+          <form className="flex-1 flex" onSubmit={(e) => handleSubmit(e, false)}>
           <input 
             ref={inputRef}
             type="text" 
@@ -216,6 +339,7 @@ export const Panel: React.FC = () => {
           </button>
         )}
       </div>
+     </div>
     </div>
   );
 };

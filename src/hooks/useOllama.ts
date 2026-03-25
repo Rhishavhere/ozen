@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
 import { Message, OllamaModel } from "../types/chat";
 import { logUsage } from "../lib/rateLimit";
-import { searchMemories, addMemory } from "../lib/membrain"; // ← NEW
+import { searchMemories, addMemory, getTimeTags } from "../lib/membrain";
+import { getAIConfig } from "../lib/aiProfiles";
+import { getSettings } from "../lib/store";
 
 const OLLAMA_URL = "http://localhost:11434";
 
@@ -27,17 +29,21 @@ export function useOllama() {
     modelName: string,
     messages: Message[],
     onChunk: (chunk: string) => void,
+    options?: { source?: 'panel' | 'desk' }
   ) => {
     setIsGenerating(true);
     setError(null);
     try {
+      const config = getAIConfig();
+      const settings = getSettings();
       // ── MEMBRAIN: Search ──────────────────────────────────────────────────
       const lastUserMsg = [...messages]
         .reverse()
         .find((m) => m.role === "user");
-
+      const shouldFetch = options?.source === 'panel' ? settings.membrainPanelFetch : settings.membrainDeskFetch;
+      
       let memoryContext = "";
-      if (lastUserMsg) {
+      if (lastUserMsg && shouldFetch) {
         try {
           const memResponse = await searchMemories(lastUserMsg.content, 5, "both");
           if (memResponse?.interpreted?.answer_summary) {
@@ -50,20 +56,32 @@ export function useOllama() {
         }
       }
 
-      const messagesWithMemory: Message[] = memoryContext
-        ? [
-            {
-              id: "mem-ctx",
-              role: "system",
-              content: `You have access to the user's persistent memory. Use the following context to personalize your response:\n\n${memoryContext}`,
-            },
-            ...messages,
-          ]
-        : messages;
+      // Build final message array — unify system message if memory found
+      let messagesWithMemory: Message[] = [...messages];
+      if (memoryContext) {
+        const memoryPrompt = `\n\n[Persistent Memory Context]\n${memoryContext}`;
+        const systemMsgIdx = messagesWithMemory.findIndex(m => m.role === 'system');
+        
+        if (systemMsgIdx >= 0) {
+          // Merge with existing system message
+          messagesWithMemory[systemMsgIdx] = {
+            ...messagesWithMemory[systemMsgIdx],
+            content: messagesWithMemory[systemMsgIdx].content + memoryPrompt
+          };
+        } else {
+          // Add as new system message at start
+          messagesWithMemory.unshift({
+            id: "mem-ctx",
+            role: "system",
+            content: "You have access to the user's persistent memory. Use the following context to personalize your response:" + memoryPrompt,
+          });
+        }
+      }
 
       // ── MEMBRAIN: Store user message in background ────────────────────────
+      const timeTags = getTimeTags();
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message"])
+        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message", ...timeTags])
           .catch(e => console.error("Memory store failed:", e));
       }
       // ─────────────────────────────────────────────────────────────────────
@@ -77,6 +95,10 @@ export function useOllama() {
             role,
             content,
           })),
+          options: {
+            temperature: config.temperature,
+            num_predict: config.maxTokens,
+          },
           stream: true,
         }),
       });
@@ -112,6 +134,14 @@ export function useOllama() {
 
       const estimatedTokens = Math.max(1, Math.ceil(fullContent.length / 4));
       logUsage(estimatedTokens);
+
+      // ── MEMBRAIN: Store AI response in background ──────────────────────────
+      if (fullContent.trim()) {
+        addMemory(
+          `[AI Response to "${lastUserMsg?.content?.slice(0, 80) || 'unknown'}"] ${fullContent.slice(0, 2000)}`,
+          ["source.ollama", "type.ai-response", `model.${modelName}`, ...timeTags]
+        );
+      }
     } catch (err: any) {
       setError(err.message || "Error during generation");
     } finally {

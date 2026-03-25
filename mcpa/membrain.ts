@@ -27,8 +27,8 @@ export class MembrainClient {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.MEMBRAIN_API_KEY || '';
-    this.baseUrl = process.env.MEMBRAIN_API_URL || 'https://api.membrain.im';
+    this.apiKey = process.env.MEMBRAIN_API_KEY || process.env.VITE_MEMBRAIN_API_KEY || '';
+    this.baseUrl = process.env.MEMBRAIN_API_URL || process.env.VITE_MEMBRAIN_API_URL || 'https://api.membrain.im';
 
     if (!this.apiKey || this.apiKey === 'your_api_key_here') {
       console.warn("WARNING: MEMBRAIN_API_KEY is not set or is using the default placeholder in .env.");
@@ -136,8 +136,8 @@ export class MembrainMCPClient {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.MEMBRAIN_API_KEY || '';
-    this.baseUrl = process.env.MEMBRAIN_API_URL || 'https://api.membrain.com';
+    this.apiKey = process.env.MEMBRAIN_API_KEY || process.env.VITE_MEMBRAIN_API_KEY || '';
+    this.baseUrl = process.env.MEMBRAIN_API_URL || process.env.VITE_MEMBRAIN_API_URL || 'https://api.membrain.com';
     
     this.client = new Client({
       name: "ozen-mcp-client",

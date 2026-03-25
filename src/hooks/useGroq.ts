@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Message } from "../types/chat";
 import { logUsage } from "../lib/rateLimit";
-import { searchMemories, addMemory } from "../lib/membrain"; // ← NEW
+import { searchMemories, addMemory, getTimeTags } from "../lib/membrain";
+import { getSettings } from "../lib/store";
+
+import { getAIConfig } from "../lib/aiProfiles";
 
 export function useGroq() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -17,10 +20,13 @@ export function useGroq() {
     model: string,
     messages: Message[],
     onChunk: (chunk: string) => void,
+    options?: { source?: 'panel' | 'desk' }
   ) => {
     setIsGenerating(true);
     setError(null);
     try {
+      const config = getAIConfig();
+      const settings = getSettings();
       const apiKey = import.meta.env.VITE_GROQ_API_KEY;
       if (!apiKey) {
         throw new Error(
@@ -29,29 +35,41 @@ export function useGroq() {
       }
 
       // ── MEMBRAIN: Search ──────────────────────────────────────────────────
-      // Get the last user message to use as the memory search query
       const lastUserMsg = [...messages]
         .reverse()
         .find((m) => m.role === "user");
-      const memoryContext = lastUserMsg
+      
+      const shouldFetch = options?.source === 'panel' ? settings.membrainPanelFetch : settings.membrainDeskFetch;
+      const memoryContext = (lastUserMsg && shouldFetch)
         ? await searchMemories(lastUserMsg.content)
         : "";
 
-      // Build final message array — inject memory as system message if found
-      const messagesWithMemory: Message[] = memoryContext
-        ? [
-            {
-              id: "mem-ctx",
-              role: "system",
-              content: `You have access to the user's persistent memory. Use the following context to personalize your response:\n\n${memoryContext}`,
-            },
-            ...messages,
-          ]
-        : messages;
+      // Build final message array — unify system message if memory found
+      let messagesWithMemory: Message[] = [...messages];
+      if (memoryContext) {
+        const memoryPrompt = `\n\n[Persistent Memory Context]\n${memoryContext}`;
+        const systemMsgIdx = messagesWithMemory.findIndex(m => m.role === 'system');
+        
+        if (systemMsgIdx >= 0) {
+          // Merge with existing system message
+          messagesWithMemory[systemMsgIdx] = {
+            ...messagesWithMemory[systemMsgIdx],
+            content: messagesWithMemory[systemMsgIdx].content + memoryPrompt
+          };
+        } else {
+          // Add as new system message at start
+          messagesWithMemory.unshift({
+            id: "mem-ctx",
+            role: "system",
+            content: "You have access to the user's persistent memory. Use the following context to personalize your response:" + memoryPrompt,
+          });
+        }
+      }
 
       // ── MEMBRAIN: Store user message in background ────────────────────────
+      const timeTags = getTimeTags();
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.groq", "type.user-message"]);
+        addMemory(lastUserMsg.content, ["source.groq", "type.user-message", ...timeTags]);
       }
       // ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +87,8 @@ export function useGroq() {
               role: m.role,
               content: m.content,
             })),
+            temperature: config.temperature,
+            max_tokens: config.maxTokens,
             stream: true,
           }),
         },
@@ -123,6 +143,14 @@ export function useGroq() {
         totalTokens += Math.ceil(responseText.length / 4);
       }
       logUsage(totalTokens);
+
+      // ── MEMBRAIN: Store AI response in background ──────────────────────────
+      if (responseText.trim()) {
+        addMemory(
+          `[AI Response to "${lastUserMsg?.content?.slice(0, 80) || 'unknown'}"] ${responseText.slice(0, 2000)}`,
+          ["source.groq", "type.ai-response", `model.${model}`, ...timeTags]
+        );
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Unknown error communicating with Groq API");

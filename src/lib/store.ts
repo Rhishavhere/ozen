@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS: OzenSettings = {
   ollamaUrl: 'http://localhost:11434',
   panelSearchEngine: 'google',
   deskSearchEngine: 'google',
+  membrainPanelFetch: true,
+  membrainDeskFetch: true,
 };
 
 // ─── Conversations ─────────────────────────────────

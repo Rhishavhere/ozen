@@ -1,14 +1,68 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { User, Bot } from 'lucide-react';
 import { Message as MessageType } from '../types/chat';
 
 interface MessageProps {
   message: MessageType;
+  variant?: 'default' | 'minimal';
 }
 
-export const Message: React.FC<MessageProps> = ({ message }) => {
+export const Message: React.FC<MessageProps> = ({ message, variant = 'default' }) => {
   const isUser = message.role === 'user';
+  const isMinimal = variant === 'minimal';
+
+  if (isMinimal) {
+    return (
+      <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+        <div className={`max-w-[85%] ${isUser ? 'text-right mr-2' : 'text-left ml-4'}`}>
+          <div className={`markdown-body ${isUser ? 'text-[13px] text-gray-400 font-medium' : 'text-base text-gray-800'}`}>
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code({ node, inline, className, children, ...props }: any) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  return !inline && match ? (
+                    <SyntaxHighlighter
+                      {...props}
+                      style={vscDarkPlus}
+                      language={match[1]}
+                      PreTag="div"
+                      className="rounded-lg my-4!"
+                    >
+                      {String(children).replace(/\n$/, '')}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                }
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
+          
+          {message.searchData && message.searchData.imageUrls && message.searchData.imageUrls.length > 0 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto custom-scrollbar pb-1">
+              {message.searchData.imageUrls.map((url) => (
+                <img 
+                  key={url} 
+                  src={url} 
+                  alt="search result" 
+                  className="w-24 h-24 object-cover rounded-lg border border-gray-100 shadow-xs shrink-0  transition-transform"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-6`}>
@@ -20,7 +74,31 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
           <div className="text-sm font-semibold text-gray-700 mb-1">{isUser ? 'You' : 'Ozen'}</div>
           <div className={`pr-4 py-3 rounded-2xl w-full ${isUser ? 'bg-gray-100 text-gray-900 rounded-tr-none' : 'bg-transparent text-gray-900'}`}>
             <div className="markdown-body text-base text-gray-800">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ node, inline, className, children, ...props }: any) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        {...props}
+                        style={vscDarkPlus}
+                        language={match[1]}
+                        PreTag="div"
+                        className="rounded-lg my-4!"
+                      >
+                        {String(children).replace(/\n$/, '')}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  }
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
           </div>
         </div>

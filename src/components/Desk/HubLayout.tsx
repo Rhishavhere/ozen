@@ -1,5 +1,4 @@
-// HubLayout.tsx — clean
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar, TabId } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
 import { ChatArea } from "../ChatArea";
@@ -7,6 +6,7 @@ import { AgentsView } from "./Views/AgentsView";
 import { DashboardView } from "./Views/DashboardView";
 import { HistoryView } from "./Views/HistoryView";
 import { BrowserView } from "./Views/BrowserView";
+import { YourAIView } from "./Views/YourAIView";
 import { SettingsView } from "./Views/SettingsView";
 import MemoryView from "./Views/MemoryView";
 
@@ -18,6 +18,20 @@ export const HubLayout: React.FC = () => {
   const [browserUrl, setBrowserUrl] = useState<string>(
     "https://www.google.com",
   );
+
+  // Listen for IPC messages from Panel's "Open in Desk" button
+  useEffect(() => {
+    const handler = (_event: any, { url }: { url: string }) => {
+      setBrowserUrl(url);
+      setActiveTab('browser');
+    };
+    // @ts-ignore
+    window.ipcRenderer?.on('navigate-browser', handler);
+    return () => {
+      // @ts-ignore
+      window.ipcRenderer?.off('navigate-browser', handler);
+    };
+  }, []);
 
   const handleNavigate = (tab: string, state?: any) => {
     setActiveTab(tab as TabId);
@@ -57,6 +71,8 @@ export const HubLayout: React.FC = () => {
         return <BrowserView key={browserUrl} initialUrl={browserUrl} />;
       case "memory":
         return <MemoryView />;
+      case "yourai":
+        return <YourAIView />;
       case "functions":
       case "features":
         return (

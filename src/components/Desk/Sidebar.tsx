@@ -9,6 +9,7 @@ import {
   Settings,
   Cpu,
   ChevronDown,
+  Brain,
   BrainCircuit,
 } from "lucide-react";
 import { getSettings } from "../../lib/store";
@@ -19,6 +20,7 @@ export type TabId =
   | "chat"
   | "history"
   | "browser"
+  | "yourai"
   | "agents"
   | "functions"
   | "features"
@@ -35,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
     { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
     { id: "chat" as const, label: "Chat", icon: MessageSquare },
     { id: "browser" as const, label: "Browser", icon: Globe },
+    { id: "yourai" as const, label: "Your AI", icon: Brain },
     { id: "history" as const, label: "History", icon: History },
   ];
 

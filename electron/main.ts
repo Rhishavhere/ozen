@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { uIOhook } from 'uiohook-napi'
+import google from 'googlethis'
+// @ts-ignore
+import activeWindow from 'active-win'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -145,8 +148,22 @@ function getClampedBounds(targetX: number, targetY: number, width: number, heigh
   return { x, y, width, height };
 }
 
-function createPanelWindow(x: number, y: number) {
+async function fetchActiveWindow() {
+  try {
+    const win = await activeWindow();
+    if (win) {
+      return { title: win.title, owner: win.owner.name };
+    }
+  } catch (err) {
+    console.error('Failed to get active window:', err);
+  }
+  return null;
+}
+
+async function createPanelWindow(x: number, y: number) {
   const bounds = getClampedBounds(x - 300, y - 40, 400, 60, { x, y });
+
+  const activeWin = await fetchActiveWindow();
 
   if (panelWin) {
     if (panelWin.isMinimized()) panelWin.restore();
@@ -155,6 +172,8 @@ function createPanelWindow(x: number, y: number) {
     panelWin.setAlwaysOnTop(true, 'screen-saver', 1);
     panelWin.show();
     panelWin.focus();
+    panelWin.webContents.focus();
+    panelWin.webContents.send('panel-activated', activeWin);
     return;
   }
 
@@ -178,6 +197,15 @@ function createPanelWindow(x: number, y: number) {
   } else {
     panelWin.loadFile(path.join(RENDERER_DIST, 'index.html'), { hash: '/panel' });
   }
+
+  // Once the panel renderer is ready, grab focus aggressively
+  panelWin.webContents.once('did-finish-load', () => {
+    if (panelWin && !panelWin.isDestroyed()) {
+      panelWin.focus();
+      panelWin.webContents.focus();
+      panelWin.webContents.send('panel-activated', activeWin);
+    }
+  });
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -207,6 +235,29 @@ ipcMain.on('hide-panel', () => {
   }
 });
 
+ipcMain.on('open-in-desk', (_event, { url }) => {
+  // If the Hub (main) window isn't open, create it
+  if (!win || win.isDestroyed()) {
+    createWindow();
+  }
+
+  // Once the window is ready, send the URL to open in the Browser tab
+  const sendUrl = () => {
+    if (win && !win.isDestroyed()) {
+      win.show();
+      win.focus();
+      win.webContents.send('navigate-browser', { url });
+    }
+  };
+
+  // If the window is still loading, wait for it
+  if (win && !win.isDestroyed() && win.webContents.isLoading()) {
+    win.webContents.once('did-finish-load', sendUrl);
+  } else {
+    sendUrl();
+  }
+});
+
 ipcMain.on('resize-panel', (_event, { width, height }) => {
   if (panelWin) {
     const currentBounds = panelWin.getBounds();
@@ -215,6 +266,21 @@ ipcMain.on('resize-panel', (_event, { width, height }) => {
     const bounds = getClampedBounds(currentBounds.x, targetY, width, height, { x: currentBounds.x, y: currentBounds.y });
     
     panelWin.setBounds(bounds, true); // true for animation if OS supports it
+  }
+});
+
+ipcMain.handle('fetch-search-results', async (_event, query) => {
+  try {
+    const images = await google.image(query, { safe: false });
+    
+    const resultsData = {
+      imageUrls: images.slice(0, 3).map((img: any) => img.url)
+    };
+    console.log('Search Results for query:', query, resultsData);
+    return resultsData;
+  } catch (err) {
+    console.error('Failed to fetch search results:', err);
+    return null;
   }
 });
 
