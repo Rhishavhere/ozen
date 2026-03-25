@@ -71,8 +71,8 @@ export const Panel: React.FC = () => {
     }, 300);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, triggerImageSearch: boolean = false) => {
+    e?.preventDefault();
     if (!input.trim() || isGenerating) return;
 
     handleExpand();
@@ -88,27 +88,30 @@ export const Panel: React.FC = () => {
     
     const query = input.trim();
     setInput('');
+    inputRef.current?.focus();
     
-    setIsSearching(true);
-    // @ts-ignore
-    window.ipcRenderer?.invoke('fetch-search-results', query).then((res: any) => {
-      console.log('Renderer received search results:', res);
-      if (res) {
-        setMessages(prev => prev.map(msg => {
-          if (msg.id === assistantMessageId) {
-            return { ...msg, searchData: res };
-          }
-          return msg;
-        }));
-      }
-      setIsSearching(false);
-    }).catch((err: any) => {
-      console.error('Renderer failed to fetch search results:', err);
-      setIsSearching(false);
-    });
-
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
+
+    if (triggerImageSearch) {
+      setIsSearching(true);
+      // @ts-ignore
+      window.ipcRenderer?.invoke('fetch-search-results', query).then((res: any) => {
+        console.log('Renderer received search results:', res);
+        if (res) {
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === assistantMessageId) {
+              return { ...msg, searchData: res };
+            }
+            return msg;
+          }));
+        }
+        setIsSearching(false);
+      }).catch((err: any) => {
+        console.error('Renderer failed to fetch search results:', err);
+        setIsSearching(false);
+      });
+    }
 
     const systemPrompt = getEffectivePrompt('panel');
     const messagesWithSystem = [
@@ -149,6 +152,9 @@ export const Panel: React.FC = () => {
       
       // @ts-ignore
       window.ipcRenderer?.send('resize-panel', { width: 800, height: 600 });
+    } else if (e.key === 'Enter' && e.altKey) {
+      e.preventDefault();
+      handleSubmit(undefined, true);
     }
   };
 
@@ -162,6 +168,13 @@ export const Panel: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isGenerating]);
+
+  useEffect(() => {
+    if (!isGenerating && isExpanded && !isBrowserMode) {
+      // Slight delay to ensure the input is no longer disabled in the DOM
+      setTimeout(() => inputRef.current?.focus(), 10);
+    }
+  }, [isGenerating, isExpanded, isBrowserMode]);
 
   useEffect(() => {
     // Aggressive retry-loop focus: tries every 50ms for up to 500ms
@@ -217,7 +230,7 @@ export const Panel: React.FC = () => {
     if (isGenerating) return "Thinking..";
     if (isExpanded && !isBrowserMode) return "Ask Ozen";
     if (isBrowserMode) return settings.panelSearchEngine === 'duckduckgo' ? "Search DuckDuckGo" : "Search Google";
-    return "Felt like you thought of me 🙂";
+    return "Mujhe yaad kiya? 🙂";
   };
 
   return (
@@ -277,7 +290,7 @@ export const Panel: React.FC = () => {
       {/* Input Bar */}
       <div className="w-full h-[50px] shrink-0 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 mt-auto">
         <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
-        <form className="flex-1 flex" onSubmit={handleSubmit}>
+        <form className="flex-1 flex" onSubmit={(e) => handleSubmit(e, false)}>
           <input 
             ref={inputRef}
             type="text" 
