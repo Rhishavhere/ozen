@@ -4,6 +4,8 @@ import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { uIOhook } from 'uiohook-napi'
 import google from 'googlethis'
+// @ts-ignore
+import activeWindow from 'active-win'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -146,8 +148,22 @@ function getClampedBounds(targetX: number, targetY: number, width: number, heigh
   return { x, y, width, height };
 }
 
-function createPanelWindow(x: number, y: number) {
+async function fetchActiveWindow() {
+  try {
+    const win = await activeWindow();
+    if (win) {
+      return { title: win.title, owner: win.owner.name };
+    }
+  } catch (err) {
+    console.error('Failed to get active window:', err);
+  }
+  return null;
+}
+
+async function createPanelWindow(x: number, y: number) {
   const bounds = getClampedBounds(x - 300, y - 40, 400, 60, { x, y });
+
+  const activeWin = await fetchActiveWindow();
 
   if (panelWin) {
     if (panelWin.isMinimized()) panelWin.restore();
@@ -157,7 +173,7 @@ function createPanelWindow(x: number, y: number) {
     panelWin.show();
     panelWin.focus();
     panelWin.webContents.focus();
-    panelWin.webContents.send('panel-activated');
+    panelWin.webContents.send('panel-activated', activeWin);
     return;
   }
 
@@ -187,7 +203,7 @@ function createPanelWindow(x: number, y: number) {
     if (panelWin && !panelWin.isDestroyed()) {
       panelWin.focus();
       panelWin.webContents.focus();
-      panelWin.webContents.send('panel-activated');
+      panelWin.webContents.send('panel-activated', activeWin);
     }
   });
 }

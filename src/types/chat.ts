@@ -1,3 +1,8 @@
+export interface ActiveWindowContext {
+  title: string;
+  owner: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';

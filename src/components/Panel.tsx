@@ -3,7 +3,7 @@ import { Loader2, X, Maximize2 } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { useOllama } from '../hooks/useOllama';
 import { useGroq } from '../hooks/useGroq';
-import { Message as MessageType } from '../types/chat';
+import { ActiveWindowContext, Message as MessageType } from '../types/chat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from './Message';
 import { saveConversation, generateTitle, getSettings } from '../lib/store';
@@ -20,6 +20,7 @@ export const Panel: React.FC = () => {
   const [browserUrl, setBrowserUrl] = useState('');
   const [conversationId] = useState(() => Date.now().toString());
   const [isSearching, setIsSearching] = useState(false);
+  const [activeWindow, setActiveWindow] = useState<ActiveWindowContext | null>(null);
 
   const settings = getSettings();
   const isGroq = settings.provider === 'groq';
@@ -113,7 +114,11 @@ export const Panel: React.FC = () => {
       });
     }
 
-    const systemPrompt = getEffectivePrompt('panel');
+    let systemPrompt = getEffectivePrompt('panel');
+    if (activeWindow) {
+      systemPrompt += `\n\n[SYSTEM CONTEXT]: The user is currently interacting with the application: "${activeWindow.owner}" and the window is titled: "${activeWindow.title}". ONLY use this context IF their query implies it or is vague (e.g. 'what does this code do?', 'summarize this page'). Do NOT mention the window context if it is irrelevant to their question.`;
+    }
+
     const messagesWithSystem = [
       { id: 'system', role: 'system' as const, content: systemPrompt },
       ...messages,
@@ -206,8 +211,11 @@ export const Panel: React.FC = () => {
 
     // Listen for explicit IPC activation signal from main process
     // @ts-ignore
-    const onActivated = () => {
+    const onActivated = (_event: any, activeWin: ActiveWindowContext | null) => {
       forceFocus();
+      if (activeWin) {
+        setActiveWindow(activeWin);
+      }
     };
     // @ts-ignore
     window.ipcRenderer?.on('panel-activated', onActivated);
@@ -288,9 +296,27 @@ export const Panel: React.FC = () => {
       </AnimatePresence>
 
       {/* Input Bar */}
-      <div className="w-full h-[50px] shrink-0 bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 mt-auto">
-        <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
-        <form className="flex-1 flex" onSubmit={(e) => handleSubmit(e, false)}>
+      <div className="w-full flex flex-col shrink-0 mt-auto px-4 pb-4">
+        {/* Dynamic Context Pill */}
+        <AnimatePresence>
+          {activeWindow && !isExpanded && messages.length === 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              className="flex items-center gap-1.5 self-start mb-2 px-3 py-1 bg-white/60 backdrop-blur-md border border-white/40 rounded-full shadow-xs"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+              <span className="text-[10px] font-semibold text-gray-500 tracking-wide uppercase">
+                Using {activeWindow.owner}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="w-full h-[50px] bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 relative z-10">
+          <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
+          <form className="flex-1 flex" onSubmit={(e) => handleSubmit(e, false)}>
           <input 
             ref={inputRef}
             type="text" 
@@ -313,6 +339,7 @@ export const Panel: React.FC = () => {
           </button>
         )}
       </div>
+     </div>
     </div>
   );
 };
