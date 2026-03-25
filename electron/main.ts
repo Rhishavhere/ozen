@@ -196,31 +196,20 @@ function createOrbWindow() {
 
 async function copyAndQuery() {
   const { clipboard } = await import('electron');
-  const { spawnSync } = await import('node:child_process');
   
-  // Trigger Ctrl+C via PowerShell sync to ensure it executes before we read
-  const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^c')`;
-  spawnSync('powershell', ['-Command', psCommand]);
+  // The text is already in the clipboard, so we just read it directly
+  const query = clipboard.readText();
+  
+  const point = screen.getCursorScreenPoint();
+  
+  // Pass the query safely to the panel
+  createPanelWindow(point.x, point.y + 10, query);
 
-  // Give the OS/App a tiny bit more time to populate clipboard after the key signal
-  setTimeout(() => {
-    const query = clipboard.readText();
-    
-    // Position panel near cursor with a more conservative offset
-    const point = screen.getCursorScreenPoint();
-    createPanelWindow(point.x, point.y + 10);
-    
-    // Send the query to the panel once it's ready
-    if (panelWin) {
-      panelWin.webContents.send('panel-query', query);
-    }
-
-    // Hide Orb
-    if (orbWin) {
-      orbWin.hide();
-      isOrbActiveDueToSelection = false;
-    }
-  }, 100);
+  // Reset the state so Shift+Enter goes back to normal immediately
+  isOrbActiveDueToSelection = false;
+  if (orbWin) {
+    orbWin.hide();
+  }
 }
 let panelWin: BrowserWindow | null;
 
@@ -325,6 +314,20 @@ ipcMain.on('hide-panel', () => {
     panelWin.minimize();
     panelWin.hide();
   }
+});
+
+ipcMain.on('clip-text', (_event, text: string) => {
+  clipboard.writeText(text);
+  if (panelWin) {
+    panelWin.minimize();
+    panelWin.hide();
+  }
+  
+  // Wait for focus to return to the previous window then paste
+  setTimeout(() => {
+    const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
+    spawn('powershell', ['-Command', psCommand]);
+  }, 200);
 });
 
 ipcMain.on('open-in-desk', (_event, { url }) => {
@@ -445,11 +448,17 @@ app.whenReady().then(() => {
   setInterval(() => {
     const currentText = clipboard.readText();
     
-    // Check if there is text, it's not just empty space, and it's actually new
     if (currentText && currentText.trim() !== '' && currentText !== lastClipboardText) {
       lastClipboardText = currentText;
       isOrbActiveDueToSelection = true;
-      createOrbWindow();
+      
+      // We removed createOrbWindow() here so it stays completely silent!
+
+      // Keep the 5-second active window for the Shift+Enter hotkey
+      if (orbTimeout) clearTimeout(orbTimeout);
+      orbTimeout = setTimeout(() => {
+        isOrbActiveDueToSelection = false;
+      }, 5000);
     }
   }, 500);
 

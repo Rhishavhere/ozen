@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { User, Bot } from 'lucide-react';
+import { User, Bot, Clipboard } from 'lucide-react';
 import { Message as MessageType } from '../types/chat';
 
 interface MessageProps {
@@ -57,6 +57,22 @@ export const Message: React.FC<MessageProps> = ({ message, variant = 'default' }
                   className="w-24 h-24 object-cover rounded-lg border border-gray-100 shadow-xs shrink-0  transition-transform"
                 />
               ))}
+            </div>
+          )}
+
+          {!isUser && message.content && (
+            <div className="mt-2 flex justify-start">
+              <button
+                onClick={() => {
+                  // @ts-ignore
+                  window.ipcRenderer?.send('clip-text', message.content);
+                }}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 hover:text-purple-600 bg-gray-50/50 hover:bg-purple-50 border border-gray-100 rounded-lg px-2 py-1 transition-all cursor-pointer group"
+                title="Clip to previous application"
+              >
+                <Clipboard size={12} className="group-hover:scale-110 transition-transform" />
+                Clip
+              </button>
             </div>
           )}
         </div>
