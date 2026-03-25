@@ -10,8 +10,8 @@ import { saveConversation, generateTitle, getSettings } from '../lib/store';
 import { addSearchEntry } from '../lib/searchHistory';
 import { getEffectivePrompt } from '../lib/aiProfiles';
 
-interface SearchData {
-  imageUrl: string | null;
+interface LatestSearchData {
+  imageUrls: string[];
   links: { title: string; url: string }[];
 }
 
@@ -24,7 +24,7 @@ export const Panel: React.FC = () => {
   const [isBrowserMode, setIsBrowserMode] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
   const [conversationId] = useState(() => Date.now().toString());
-  const [searchData, setSearchData] = useState<SearchData | null>(null);
+  const [latestSearchData, setLatestSearchData] = useState<LatestSearchData | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
   const settings = getSettings();
@@ -95,11 +95,19 @@ export const Panel: React.FC = () => {
     const query = input.trim();
     setInput('');
     
-    setSearchData(null);
+    setLatestSearchData(null);
     setIsSearching(true);
     // @ts-ignore
-    window.ipcRenderer?.invoke('fetch-search-results', query).then((res: SearchData | null) => {
-      if (res) setSearchData(res);
+    window.ipcRenderer?.invoke('fetch-search-results', query).then((res: LatestSearchData | null) => {
+      if (res) {
+        setLatestSearchData(res);
+        setMessages(prev => prev.map(msg => {
+          if (msg.id === assistantMessageId) {
+            return { ...msg, searchData: res };
+          }
+          return msg;
+        }));
+      }
       setIsSearching(false);
     }).catch(() => setIsSearching(false));
 
@@ -248,9 +256,9 @@ export const Panel: React.FC = () => {
             ) : (
               <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar relative">
                  {/* Floating Quick Links */}
-                 {searchData && searchData.links && searchData.links.length > 0 && (
+                 {latestSearchData && latestSearchData.links && latestSearchData.links.length > 0 && (
                    <div className="sticky top-0 z-20 w-full pb-4 pt-1 flex flex-wrap gap-2 justify-start bg-linear-to-b from-white via-white/95 to-transparent">
-                     {searchData.links.map((link, idx) => (
+                     {latestSearchData.links.map((link, idx) => (
                        <button
                          key={idx}
                          onClick={() => {
@@ -281,11 +289,6 @@ export const Panel: React.FC = () => {
                    </div>
                  )}
                  
-                 {searchData && searchData.imageUrl && (
-                   <div className="mt-2 mb-6 ml-4 max-w-[85%] rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                     <img src={searchData.imageUrl} alt="Search result" className="w-full h-auto max-h-[200px] object-cover" />
-                   </div>
-                 )}
                  <div ref={messagesEndRef} />
               </div>
             )}

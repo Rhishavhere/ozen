@@ -260,7 +260,7 @@ ipcMain.handle('fetch-search-results', async (_event, query) => {
       google.search(query, { parse_ads: false })
     ]);
     return {
-      imageUrl: images.length > 0 ? images[0].url : null,
+      imageUrls: images.slice(0, 3).map(img => img.url),
       links: results.results.slice(0, 3).map(r => ({ title: r.title, url: r.url }))
     };
   } catch (err) {

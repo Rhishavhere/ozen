@@ -46,6 +46,19 @@ export const Message: React.FC<MessageProps> = ({ message, variant = 'default' }
               {message.content}
             </ReactMarkdown>
           </div>
+          
+          {message.searchData && message.searchData.imageUrls && message.searchData.imageUrls.length > 0 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto custom-scrollbar pb-1">
+              {message.searchData.imageUrls.map((url) => (
+                <img 
+                  key={url} 
+                  src={url} 
+                  alt="search result" 
+                  className="w-24 h-24 object-cover rounded-lg border border-gray-100 shadow-xs shrink-0  transition-transform"
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );

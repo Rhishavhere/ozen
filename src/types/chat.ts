@@ -2,6 +2,10 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  searchData?: {
+    imageUrls: string[];
+    links: { title: string; url: string }[];
+  };
 }
 
 export interface Conversation {
