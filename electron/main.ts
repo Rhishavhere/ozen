@@ -70,13 +70,20 @@ ipcMain.on('win-close', () => { win?.close(); });
 let orbWin: BrowserWindow | null;
 let orbTimeout: NodeJS.Timeout;
 let trackInterval: NodeJS.Timeout | null = null;
+let isOrbActiveDueToSelection = false;
+let isShiftPressed = false;
+
+// Selection tracking state
+let lastMouseDown = { x: 0, y: 0 };
+let isDragging = false;
 
 function createOrbWindow() {
   const size = 60; // Larger window to allow the "zoop" animation space to breathe without clipping
   
   const getPosition = () => {
     const point = screen.getCursorScreenPoint();
-    return { x: point.x, y: point.y };
+    // Center the 60x60 window on the cursor
+    return { x: Math.round(point.x - size / 2), y: Math.round(point.y - size / 2) };
   };
 
   const initialPos = getPosition();
@@ -123,12 +130,42 @@ function createOrbWindow() {
   orbTimeout = setTimeout(() => {
     if (orbWin && !orbWin.isDestroyed()) {
       orbWin.hide();
+      isOrbActiveDueToSelection = false;
       if (trackInterval) {
         clearInterval(trackInterval);
         trackInterval = null;
       }
     }
   }, 5000);
+}
+
+async function copyAndQuery() {
+  const { clipboard } = await import('electron');
+  const { spawnSync } = await import('node:child_process');
+  
+  // Trigger Ctrl+C via PowerShell sync to ensure it executes before we read
+  const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^c')`;
+  spawnSync('powershell', ['-Command', psCommand]);
+
+  // Give the OS/App a tiny bit more time to populate clipboard after the key signal
+  setTimeout(() => {
+    const query = clipboard.readText();
+    
+    // Position panel near cursor with a more conservative offset
+    const point = screen.getCursorScreenPoint();
+    createPanelWindow(point.x, point.y + 10);
+    
+    // Send the query to the panel once it's ready
+    if (panelWin) {
+      panelWin.webContents.send('panel-query', query);
+    }
+
+    // Hide Orb
+    if (orbWin) {
+      orbWin.hide();
+      isOrbActiveDueToSelection = false;
+    }
+  }, 100);
 }
 let panelWin: BrowserWindow | null;
 
@@ -317,7 +354,17 @@ app.whenReady().then(() => {
   const IGNORED_KEYS = [42, 54, 29, 3613, 56, 3640, 3675, 3676]; // Shift, Ctrl, Alt, Meta
   
   uIOhook.on("keydown", (e) => {
+    if (e.keycode === 42 || e.keycode === 54) isShiftPressed = true;
     if (IGNORED_KEYS.includes(e.keycode)) return;
+
+    // Handle Shift+Enter when Orb is active due to selection
+    // Enter: 28
+    if (e.keycode === 28 && (isShiftPressed || e.shiftKey)) {
+      if (isOrbActiveDueToSelection) {
+        copyAndQuery();
+        return;
+      }
+    }
 
     buffer.push(e.keycode);
     if (buffer.length > 5) buffer.shift();
@@ -328,6 +375,30 @@ app.whenReady().then(() => {
         buffer = []; // Clear buffer
         const point = screen.getCursorScreenPoint();
         createPanelWindow(point.x, point.y + 20);
+      }
+    }
+  });
+
+  uIOhook.on("keyup", (e) => {
+    if (e.keycode === 42 || e.keycode === 54) isShiftPressed = false;
+  });
+
+  uIOhook.on("mousedown", (e) => {
+    if (e.button === 1) { // Left click
+      lastMouseDown = { x: e.x, y: e.y };
+      isDragging = true;
+    }
+  });
+
+  uIOhook.on("mouseup", (e) => {
+    if (e.button === 1 && isDragging) {
+      isDragging = false;
+      const dist = Math.sqrt(Math.pow(e.x - lastMouseDown.x, 2) + Math.pow(e.y - lastMouseDown.y, 2));
+      
+      // If dragged more than 10 pixels, assume selection
+      if (dist > 10) {
+        isOrbActiveDueToSelection = true;
+        createOrbWindow();
       }
     }
   });

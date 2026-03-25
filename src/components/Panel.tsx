@@ -72,9 +72,17 @@ export const Panel: React.FC = () => {
     }, 300);
   };
 
-  const handleSubmit = async (e?: React.FormEvent, triggerImageSearch: boolean = false) => {
+  const handleQuery = (query: string) => {
+    setInput(query);
+    setTimeout(() => {
+      handleSubmit(undefined, false, query);
+    }, 10);
+  };
+
+  const handleSubmit = async (e?: React.FormEvent, triggerImageSearch: boolean = false, overrideQuery?: string) => {
     e?.preventDefault();
-    if (!input.trim() || isGenerating) return;
+    const query = overrideQuery || input.trim();
+    if (!query.trim() || isGenerating) return;
 
     handleExpand();
 
@@ -82,13 +90,14 @@ export const Panel: React.FC = () => {
     const userMessage: MessageType = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim()
+      content: query.trim()
     };
     
     setMessages(prev => [...prev, userMessage]);
     
-    const query = input.trim();
-    setInput('');
+    if (!overrideQuery) {
+      setInput('');
+    }
     inputRef.current?.focus();
     
     const assistantMessageId = (Date.now() + 1).toString();
@@ -97,8 +106,7 @@ export const Panel: React.FC = () => {
     if (triggerImageSearch) {
       setIsSearching(true);
       // @ts-ignore
-      window.ipcRenderer?.invoke('fetch-search-results', query).then((res: any) => {
-        console.log('Renderer received search results:', res);
+      window.ipcRenderer?.invoke('fetch-search-results', query.trim()).then((res: any) => {
         if (res) {
           setMessages(prev => prev.map(msg => {
             if (msg.id === assistantMessageId) {
@@ -109,7 +117,6 @@ export const Panel: React.FC = () => {
         }
         setIsSearching(false);
       }).catch((err: any) => {
-        console.error('Renderer failed to fetch search results:', err);
         setIsSearching(false);
       });
     }
@@ -218,7 +225,14 @@ export const Panel: React.FC = () => {
       }
     };
     // @ts-ignore
+    const onQuery = (_event: any, query: string) => {
+      handleQuery(query);
+    };
+
+    // @ts-ignore
     window.ipcRenderer?.on('panel-activated', onActivated);
+    // @ts-ignore
+    window.ipcRenderer?.on('panel-query', onQuery);
     
     window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
@@ -231,6 +245,8 @@ export const Panel: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       // @ts-ignore
       window.ipcRenderer?.off('panel-activated', onActivated);
+      // @ts-ignore
+      window.ipcRenderer?.off('panel-query', onQuery);
     };
   }, []);
 
@@ -316,7 +332,7 @@ export const Panel: React.FC = () => {
 
         <div className="w-full h-[50px] bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 relative z-10">
           <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
-          <form className="flex-1 flex" onSubmit={(e) => handleSubmit(e, false)}>
+          <form className="flex-1 flex" onSubmit={(e) => handleSubmit(e)}>
           <input 
             ref={inputRef}
             type="text" 
