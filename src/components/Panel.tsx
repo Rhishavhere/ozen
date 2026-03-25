@@ -235,7 +235,7 @@ export const Panel: React.FC = () => {
                      Thinking...
                    </div>
                  ) : (
-                   messages.map(msg => <Message key={msg.id} message={msg} />)
+                   messages.map(msg => <Message key={msg.id} message={msg} variant="minimal" />)
                  )}
                  <div ref={messagesEndRef} />
               </div>
