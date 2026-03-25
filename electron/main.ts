@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, nativeTheme } from 'electron'
+import { app, BrowserWindow, clipboard, screen, ipcMain, Tray, Menu, nativeImage, nativeTheme } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -73,17 +73,73 @@ let trackInterval: NodeJS.Timeout | null = null;
 let isOrbActiveDueToSelection = false;
 let isShiftPressed = false;
 
-// Selection tracking state
-let lastMouseDown = { x: 0, y: 0 };
-let isDragging = false;
+// Clipboard tracking state
+let lastClipboardText = '';
+
+// function createOrbWindow() {
+//   const size = 60; 
+//   const point = screen.getCursorScreenPoint();
+  
+//   // Offset slightly down and to the right so it doesn't block the cursor or copied text
+//   const targetX = Math.round(point.x + 15);
+//   const targetY = Math.round(point.y + 15);
+
+//   if (orbWin) {
+//     // Use setBounds instead of setPosition (this is what the Panel uses, it's more reliable)
+//     orbWin.setBounds({ x: targetX, y: targetY, width: size, height: size });
+//     orbWin.showInactive();
+//   } else {
+//     orbWin = new BrowserWindow({
+//       width: size,
+//       height: size,
+//       x: targetX,
+//       y: targetY,
+//       frame: false,
+//       transparent: true,
+//       alwaysOnTop: true,
+//       skipTaskbar: true,
+//       resizable: false,
+//       focusable: false,
+//       show: false, 
+//       webPreferences: {
+//         preload: path.join(__dirname, "preload.mjs")
+//       }
+//     });
+
+//     orbWin.setIgnoreMouseEvents(true);
+
+//     if (VITE_DEV_SERVER_URL) {
+//       orbWin.loadURL(`${VITE_DEV_SERVER_URL}/#/orb`);
+//     } else {
+//       orbWin.loadFile(path.join(RENDERER_DIST, "index.html"), { hash: "/orb" });
+//     }
+    
+//     // Wait until the renderer is ready before showing to eliminate initial flicker
+//     orbWin.once('ready-to-show', () => {
+//       if (orbWin && !orbWin.isDestroyed()) {
+//         orbWin.showInactive();
+//       }
+//     });
+//   }
+
+//   // --- THE 60FPS TRACKING LOOP HAS BEEN DELETED ---
+
+//   // Auto-hide after 5 seconds
+//   if (orbTimeout) clearTimeout(orbTimeout);
+//   orbTimeout = setTimeout(() => {
+//     if (orbWin && !orbWin.isDestroyed()) {
+//       orbWin.hide();
+//       isOrbActiveDueToSelection = false;
+//     }
+//   }, 5000);
+// }
 
 function createOrbWindow() {
   const size = 60; // Larger window to allow the "zoop" animation space to breathe without clipping
   
   const getPosition = () => {
     const point = screen.getCursorScreenPoint();
-    // Center the 60x60 window on the cursor
-    return { x: Math.round(point.x - size / 2), y: Math.round(point.y - size / 2) };
+    return { x: point.x, y: point.y };
   };
 
   const initialPos = getPosition();
@@ -130,7 +186,6 @@ function createOrbWindow() {
   orbTimeout = setTimeout(() => {
     if (orbWin && !orbWin.isDestroyed()) {
       orbWin.hide();
-      isOrbActiveDueToSelection = false;
       if (trackInterval) {
         clearInterval(trackInterval);
         trackInterval = null;
@@ -383,25 +438,20 @@ app.whenReady().then(() => {
     if (e.keycode === 42 || e.keycode === 54) isShiftPressed = false;
   });
 
-  uIOhook.on("mousedown", (e) => {
-    if (e.button === 1) { // Left click
-      lastMouseDown = { x: e.x, y: e.y };
-      isDragging = true;
-    }
-  });
+// Initialize baseline clipboard state
+  lastClipboardText = clipboard.readText();
 
-  uIOhook.on("mouseup", (e) => {
-    if (e.button === 1 && isDragging) {
-      isDragging = false;
-      const dist = Math.sqrt(Math.pow(e.x - lastMouseDown.x, 2) + Math.pow(e.y - lastMouseDown.y, 2));
-      
-      // If dragged more than 10 pixels, assume selection
-      if (dist > 10) {
-        isOrbActiveDueToSelection = true;
-        createOrbWindow();
-      }
+  // Poll clipboard every 500ms for new text
+  setInterval(() => {
+    const currentText = clipboard.readText();
+    
+    // Check if there is text, it's not just empty space, and it's actually new
+    if (currentText && currentText.trim() !== '' && currentText !== lastClipboardText) {
+      lastClipboardText = currentText;
+      isOrbActiveDueToSelection = true;
+      createOrbWindow();
     }
-  });
+  }, 500);
 
   uIOhook.start();
 })

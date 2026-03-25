@@ -13,6 +13,8 @@ import { getEffectivePrompt } from '../lib/aiProfiles';
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const ignoreKeysRef = useRef<boolean>(false); // NEW: Prevents hotkey bleeding
+  
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -75,8 +77,13 @@ export const Panel: React.FC = () => {
   const handleQuery = (query: string) => {
     setInput(query);
     setTimeout(() => {
-      handleSubmit(undefined, false, query);
-    }, 10);
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // Automatically place the cursor at the end of the pasted text
+        const length = query.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    }, 50);
   };
 
   const handleSubmit = async (e?: React.FormEvent, triggerImageSearch: boolean = false, overrideQuery?: string) => {
@@ -148,6 +155,12 @@ export const Panel: React.FC = () => {
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent hotkey bleed from the main process when the panel just opened
+    if (ignoreKeysRef.current) {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();
       if (!input.trim() || isGenerating) return;
@@ -183,17 +196,14 @@ export const Panel: React.FC = () => {
 
   useEffect(() => {
     if (!isGenerating && isExpanded && !isBrowserMode) {
-      // Slight delay to ensure the input is no longer disabled in the DOM
       setTimeout(() => inputRef.current?.focus(), 10);
     }
   }, [isGenerating, isExpanded, isBrowserMode]);
 
   useEffect(() => {
-    // Aggressive retry-loop focus: tries every 50ms for up to 500ms
-    // Stops as soon as the input is actually the active element
     const forceFocus = () => {
       let attempts = 0;
-      const maxAttempts = 10; // 10 × 50ms = 500ms max
+      const maxAttempts = 10;
       const interval = setInterval(() => {
         if (inputRef.current) {
           inputRef.current.focus();
@@ -216,14 +226,18 @@ export const Panel: React.FC = () => {
       }
     };
 
-    // Listen for explicit IPC activation signal from main process
     // @ts-ignore
     const onActivated = (_event: any, activeWin: ActiveWindowContext | null) => {
+      // Shield against key bleeding for 400ms after activation
+      ignoreKeysRef.current = true;
+      setTimeout(() => { ignoreKeysRef.current = false; }, 400);
+      
       forceFocus();
       if (activeWin) {
         setActiveWindow(activeWin);
       }
     };
+    
     // @ts-ignore
     const onQuery = (_event: any, query: string) => {
       handleQuery(query);
@@ -237,7 +251,6 @@ export const Panel: React.FC = () => {
     window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
     
-    // Initial call
     forceFocus();
 
     return () => {
@@ -254,7 +267,7 @@ export const Panel: React.FC = () => {
     if (isGenerating) return "Thinking..";
     if (isExpanded && !isBrowserMode) return "Ask Ozen";
     if (isBrowserMode) return settings.panelSearchEngine === 'duckduckgo' ? "Search DuckDuckGo" : "Search Google";
-    return "Mujhe yaad kiya? 🙂";
+    return "Mujhe yaad kiya ? ";
   };
 
   return (
@@ -272,7 +285,6 @@ export const Panel: React.FC = () => {
           >
             {isBrowserMode ? (
               <div className="w-full h-full bg-white flex-1 relative rounded-2xl overflow-hidden flex flex-col">
-                {/* Browser toolbar */}
                 <div className="flex items-center justify-end px-2 py-1.5 bg-gray-50 border-b border-gray-100">
                   <button
                     onClick={handleExpandToDesk}
