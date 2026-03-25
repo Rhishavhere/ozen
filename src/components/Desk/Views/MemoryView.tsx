@@ -326,7 +326,7 @@ function GraphCanvas({ data }: { data: GraphExport }) {
 
 export default function MemoryView() {
   const mem = useMemory();
-  const [tab, setTab] = useState<Tab>("search");
+  const [tab, setTab] = useState<Tab>("graph");
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(
     null,
   );
@@ -392,13 +392,13 @@ export default function MemoryView() {
   }, [tab, statsData, statsLoadAttempted]);
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: "graph", label: "Graph", icon: GitFork },
+    { id: "system", label: "System", icon: Activity },
     { id: "search", label: "Search", icon: Search },
     { id: "create", label: "Create", icon: Plus },
     { id: "read", label: "Read", icon: BookOpen },
     { id: "update", label: "Update", icon: Pencil },
     { id: "delete", label: "Delete", icon: Trash2 },
-    { id: "graph", label: "Graph", icon: GitFork },
-    { id: "system", label: "System", icon: Activity },
   ];
 
   async function handleSearch() {
@@ -510,7 +510,7 @@ export default function MemoryView() {
             <Network size={16} className="text-white" />
           </div>
           <h1 className="text-lg font-semibold text-neutral-900 tracking-tight">
-            Memory Oracle
+            What OZEN knows about you
           </h1>
           <span className="ml-auto text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 border border-violet-200">
             Membrain
