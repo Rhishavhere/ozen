@@ -40,11 +40,21 @@ export function useOllama() {
       const lastUserMsg = [...messages]
         .reverse()
         .find((m) => m.role === "user");
-      
       const shouldFetch = options?.source === 'panel' ? settings.membrainPanelFetch : settings.membrainDeskFetch;
-      const memoryContext = (lastUserMsg && shouldFetch)
-        ? await searchMemories(lastUserMsg.content)
-        : "";
+      
+      let memoryContext = "";
+      if (lastUserMsg && shouldFetch) {
+        try {
+          const memResponse = await searchMemories(lastUserMsg.content, 5, "both");
+          if (memResponse?.interpreted?.answer_summary) {
+            memoryContext = memResponse.interpreted.answer_summary;
+          } else if (memResponse?.results?.length > 0) {
+            memoryContext = memResponse.results.map((r: any) => `- ${r.content}`).join("\n");
+          }
+        } catch (e) {
+          console.error("Memory search failed:", e);
+        }
+      }
 
       // Build final message array — unify system message if memory found
       let messagesWithMemory: Message[] = [...messages];
@@ -71,7 +81,8 @@ export function useOllama() {
       // ── MEMBRAIN: Store user message in background ────────────────────────
       const timeTags = getTimeTags();
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message", ...timeTags]);
+        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message", ...timeTags])
+          .catch(e => console.error("Memory store failed:", e));
       }
       // ─────────────────────────────────────────────────────────────────────
 

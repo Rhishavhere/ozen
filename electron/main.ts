@@ -311,7 +311,7 @@ ipcMain.handle('fetch-search-results', async (_event, query) => {
     const images = await google.image(query, { safe: false });
     
     const resultsData = {
-      imageUrls: images.slice(0, 3).map(img => img.url)
+      imageUrls: images.slice(0, 3).map((img: any) => img.url)
     };
     console.log('Search Results for query:', query, resultsData);
     return resultsData;
