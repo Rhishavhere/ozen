@@ -25,16 +25,31 @@ export const Message: React.FC<MessageProps> = ({ message, variant = 'default' }
               components={{
                 code({ node, inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || '');
+                  const codeContent = String(children).replace(/\n$/, '');
                   return !inline && match ? (
-                    <SyntaxHighlighter
-                      {...props}
-                      style={vscDarkPlus}
-                      language={match[1]}
-                      PreTag="div"
-                      className="rounded-lg my-4!"
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
+                    <div className="relative group/code my-4">
+                      <SyntaxHighlighter
+                        {...props}
+                        style={vscDarkPlus}
+                        language={match[1]}
+                        PreTag="div"
+                        className="rounded-lg m-0!"
+                      >
+                        {codeContent}
+                      </SyntaxHighlighter>
+                      {!isUser && (
+                        <button
+                          onClick={() => {
+                            // @ts-ignore
+                            window.ipcRenderer?.send('clip-text', codeContent);
+                          }}
+                          className="absolute top-2 right-2 p-1.5 bg-gray-800/50 hover:bg-purple-600/80 text-white rounded-md opacity-0 group-hover/code:opacity-100 transition-all duration-200 backdrop-blur-sm border border-white/10"
+                          title="Clip code to previous application"
+                        >
+                          <Clipboard size={14} />
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <code className={className} {...props}>
                       {children}
@@ -95,16 +110,31 @@ export const Message: React.FC<MessageProps> = ({ message, variant = 'default' }
                 components={{
                   code({ node, inline, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || '');
+                    const codeContent = String(children).replace(/\n$/, '');
                     return !inline && match ? (
-                      <SyntaxHighlighter
-                        {...props}
-                        style={vscDarkPlus}
-                        language={match[1]}
-                        PreTag="div"
-                        className="rounded-lg my-4!"
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
+                      <div className="relative group/code my-4">
+                        <SyntaxHighlighter
+                          {...props}
+                          style={vscDarkPlus}
+                          language={match[1]}
+                          PreTag="div"
+                          className="rounded-lg m-0!"
+                        >
+                          {codeContent}
+                        </SyntaxHighlighter>
+                        {!isUser && (
+                          <button
+                            onClick={() => {
+                              // @ts-ignore
+                              window.ipcRenderer?.send('clip-text', codeContent);
+                            }}
+                            className="absolute top-2 right-2 p-1.5 bg-gray-800/50 hover:bg-purple-600/80 text-white rounded-md opacity-0 group-hover/code:opacity-100 transition-all duration-200 backdrop-blur-sm border border-white/10"
+                            title="Clip code to previous application"
+                          >
+                            <Clipboard size={14} />
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <code className={className} {...props}>
                         {children}
