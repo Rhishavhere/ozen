@@ -15,6 +15,7 @@ export interface AIConfig {
   temperature: number;
   maxTokens: number;
   streamResponses: boolean;
+  userCustomInstructions?: string;
 }
 
 const AI_CONFIG_KEY = 'ozen-ai-config';
@@ -94,12 +95,19 @@ export function deleteProfile(id: string): void {
   saveAIConfig({ profiles: config.profiles, activeProfileId: config.activeProfileId });
 }
 
-/** Returns the effective system prompt for Panel or Desk, respecting active profile override */
+/** Returns the effective system prompt for Panel or Desk, respecting active profile override and custom knowledge */
 export function getEffectivePrompt(source: 'panel' | 'desk'): string {
   const config = getAIConfig();
+  let base = source === 'panel' ? config.panelSystemPrompt : config.deskSystemPrompt;
+
   if (config.activeProfileId) {
     const profile = config.profiles.find(p => p.id === config.activeProfileId);
-    if (profile) return profile.systemPrompt;
+    if (profile) base = profile.systemPrompt;
   }
-  return source === 'panel' ? config.panelSystemPrompt : config.deskSystemPrompt;
+
+  if (config.userCustomInstructions && config.userCustomInstructions.trim().length > 0) {
+    return `${base}\n\n[What Ozen should know about you]\n${config.userCustomInstructions.trim()}`;
+  }
+
+  return base;
 }

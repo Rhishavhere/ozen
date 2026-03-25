@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Brain, Save, Plus, Trash2, Check, Wand2, Thermometer, Hash, Zap } from 'lucide-react';
+import { Brain, Save, Plus, Trash2, Check, Wand2, Thermometer, Hash, Zap, User } from 'lucide-react';
 import { getAIConfig, saveAIConfig, addProfile, updateProfile, deleteProfile, AIProfile, AIConfig } from '../../../lib/aiProfiles';
 
 export const YourAIView: React.FC = () => {
@@ -67,6 +67,27 @@ export const YourAIView: React.FC = () => {
         </div>
 
         <div className="space-y-6 mt-8">
+
+          {/* Custom User Instructions */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-lg bg-pink-50 border border-pink-100 flex items-center justify-center">
+                <User size={15} className="text-pink-500" />
+              </div>
+              <div>
+                <h2 className="text-[15px] font-bold text-gray-900">What Ozen should know about you</h2>
+                <p className="text-[11px] text-gray-400 font-medium">Personalize your interactions. These instructions are injected into every chat.</p>
+              </div>
+            </div>
+
+            <textarea
+              value={config.userCustomInstructions || ''}
+              onChange={e => setConfig(prev => ({ ...prev, userCustomInstructions: e.target.value }))}
+              rows={4}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-800 font-medium outline-none focus:border-purple-300 focus:bg-white transition-all resize-none"
+              placeholder="E.g., I'm a senior frontend developer. I prefer bullet points, terse explanations, and clean TypeScript code snippets."
+            />
+          </div>
 
           {/* Default System Prompts */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">

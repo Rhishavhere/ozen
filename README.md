@@ -1,21 +1,21 @@
 <div align="center">
-   <img src="public/logo.svg" alt="Ozen Logo" width="120" />
-   <h1>Ozen</h1>
-   <p><strong>The Near-Invisible OS Layer for Local Intelligence</strong></p>
+  <img src="public/logo.svg" alt="Ozen Logo" width="120" />
+  <h1>Ozen</h1>
+  <p><strong>The Near-Invisible OS Layer for Local Intelligence</strong></p>
 
-   [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg?style=for-the-badge)](https://github.com/Rhishavhere/ozen)
-   [![Electron](https://img.shields.io/badge/Electron-30.0-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
-   [![React](https://img.shields.io/badge/React-18.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
-   [![Tailwind](https://img.shields.io/badge/Tailwind_CSS-4.2-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-   [![Local AI](https://img.shields.io/badge/Local_AI-Groq-FF69B4?style=for-the-badge&logo=ollama)](https://ollama.com/)
+  [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg?style=for-the-badge)](https://github.com/Rhishavhere/ozen)
+  [![Electron](https://img.shields.io/badge/Electron-30.0-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
+  [![React](https://img.shields.io/badge/React-18.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+  [![Tailwind](https://img.shields.io/badge/Tailwind_CSS-4.2-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+  [![Local AI](https://img.shields.io/badge/Local_AI-Groq-FF69B4?style=for-the-badge&logo=ollama)](https://ollama.com/)
 </div>
 
 <div align="center">
   
 
-   | | | |
-   |:---:|:---:|:---:|
-   | ![AI Response](Docs/image%20copy.png) | ![Code Generation](Docs/image%20copy%202.png) | ![Web Search](Docs/image%20copy%203.png) |
+  | | | |
+  |:---:|:---:|:---:|
+  | ![AI Response](Docs/image%20copy.png) | ![Code Generation](Docs/image%20copy%202.png) | ![Web Search](Docs/image%20copy%203.png) |
 </div>
 
 ---
@@ -87,18 +87,18 @@ Ozen leverages Electron's multi-window capabilities to run three concurrent proc
 
 ### Installation
 1. Clone the repository:
-    ```bash
-    git clone https://github.com/Rhishavhere/ozen.git
-    cd ozen
-    ```
+   ```bash
+   git clone https://github.com/Rhishavhere/ozen.git
+   cd ozen
+   ```
 2. Install dependencies:
-    ```bash
-    npm install
-    ```
+   ```bash
+   npm install
+   ```
 3. Start development:
-    ```bash
-    npm run dev
-    ```
+   ```bash
+   npm run dev
+   ```
 
 ### Building for Production
 ```bash
