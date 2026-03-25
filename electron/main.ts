@@ -241,7 +241,7 @@ async function fetchActiveWindow() {
   return null;
 }
 
-async function createPanelWindow(x: number, y: number) {
+async function createPanelWindow(x: number, y: number, query?: string) {
   const bounds = getClampedBounds(x - 300, y - 40, 400, 60, { x, y });
 
   const activeWin = await fetchActiveWindow();
@@ -255,6 +255,9 @@ async function createPanelWindow(x: number, y: number) {
     panelWin.focus();
     panelWin.webContents.focus();
     panelWin.webContents.send('panel-activated', activeWin);
+    if (query) {
+      panelWin.webContents.send('panel-query', query);
+    }
     return;
   }
 
@@ -285,6 +288,9 @@ async function createPanelWindow(x: number, y: number) {
       panelWin.focus();
       panelWin.webContents.focus();
       panelWin.webContents.send('panel-activated', activeWin);
+      if (query) {
+        panelWin.webContents.send('panel-query', query);
+      }
     }
   });
 }
@@ -423,6 +429,14 @@ app.whenReady().then(() => {
         copyAndQuery();
         return;
       }
+    }
+
+    // Handle Shift+Space to summon the panel instantly
+    // Space: 57
+    if (e.keycode === 57 && (isShiftPressed || e.shiftKey)) {
+      const point = screen.getCursorScreenPoint();
+      createPanelWindow(point.x, point.y + 20);
+      return;
     }
 
     buffer.push(e.keycode);

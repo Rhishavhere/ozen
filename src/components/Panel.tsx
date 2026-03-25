@@ -343,7 +343,13 @@ export const Panel: React.FC = () => {
         </AnimatePresence>
 
         <div className="w-full h-[50px] bg-white rounded-2xl shadow-[0_10px_10px_-10px_rgba(0,0,0,0.2)] border border-gray-200 flex items-center px-4 relative z-10">
-          <img src={logo} alt="Ozen" className="w-6 h-6 mr-3 border border-gray-100 rounded-full" />
+          <img 
+            src={logo} 
+            alt="Ozen" 
+            className="w-6 h-6 mr-3 border border-gray-100 rounded-full cursor-grab active:cursor-grabbing" 
+            style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+            draggable="false"
+          />
           <form className="flex-1 flex" onSubmit={(e) => handleSubmit(e)}>
           <input 
             ref={inputRef}
