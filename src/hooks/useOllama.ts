@@ -35,9 +35,20 @@ export function useOllama() {
       const lastUserMsg = [...messages]
         .reverse()
         .find((m) => m.role === "user");
-      const memoryContext = lastUserMsg
-        ? await searchMemories(lastUserMsg.content)
-        : "";
+
+      let memoryContext = "";
+      if (lastUserMsg) {
+        try {
+          const memResponse = await searchMemories(lastUserMsg.content, 5, "both");
+          if (memResponse?.interpreted?.answer_summary) {
+            memoryContext = memResponse.interpreted.answer_summary;
+          } else if (memResponse?.results?.length > 0) {
+            memoryContext = memResponse.results.map((r: any) => `- ${r.content}`).join("\n");
+          }
+        } catch (e) {
+          console.error("Memory search failed:", e);
+        }
+      }
 
       const messagesWithMemory: Message[] = memoryContext
         ? [
@@ -52,7 +63,8 @@ export function useOllama() {
 
       // ── MEMBRAIN: Store user message in background ────────────────────────
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message"]);
+        addMemory(lastUserMsg.content, ["source.ollama", "type.user-message"])
+          .catch(e => console.error("Memory store failed:", e));
       }
       // ─────────────────────────────────────────────────────────────────────
 
