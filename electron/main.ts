@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { uIOhook } from 'uiohook-napi'
+import google from 'googlethis'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -249,6 +250,22 @@ ipcMain.on('resize-panel', (_event, { width, height }) => {
     const bounds = getClampedBounds(currentBounds.x, targetY, width, height, { x: currentBounds.x, y: currentBounds.y });
     
     panelWin.setBounds(bounds, true); // true for animation if OS supports it
+  }
+});
+
+ipcMain.handle('fetch-search-results', async (_event, query) => {
+  try {
+    const [images, results] = await Promise.all([
+      google.image(query, { safe: false }),
+      google.search(query, { parse_ads: false })
+    ]);
+    return {
+      imageUrl: images.length > 0 ? images[0].url : null,
+      links: results.results.slice(0, 3).map(r => ({ title: r.title, url: r.url }))
+    };
+  } catch (err) {
+    console.error('Failed to fetch search results:', err);
+    return null;
   }
 });
 

@@ -10,6 +10,11 @@ import { saveConversation, generateTitle, getSettings } from '../lib/store';
 import { addSearchEntry } from '../lib/searchHistory';
 import { getEffectivePrompt } from '../lib/aiProfiles';
 
+interface SearchData {
+  imageUrl: string | null;
+  links: { title: string; url: string }[];
+}
+
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -19,6 +24,8 @@ export const Panel: React.FC = () => {
   const [isBrowserMode, setIsBrowserMode] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
   const [conversationId] = useState(() => Date.now().toString());
+  const [searchData, setSearchData] = useState<SearchData | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const settings = getSettings();
   const isGroq = settings.provider === 'groq';
@@ -84,7 +91,17 @@ export const Panel: React.FC = () => {
     };
     
     setMessages(prev => [...prev, userMessage]);
+    
+    const query = input.trim();
     setInput('');
+    
+    setSearchData(null);
+    setIsSearching(true);
+    // @ts-ignore
+    window.ipcRenderer?.invoke('fetch-search-results', query).then((res: SearchData | null) => {
+      if (res) setSearchData(res);
+      setIsSearching(false);
+    }).catch(() => setIsSearching(false));
 
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
@@ -229,13 +246,45 @@ export const Panel: React.FC = () => {
                 <webview src={browserUrl} className="w-full flex-1 border-none" />
               </div>
             ) : (
-              <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
+              <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar relative">
+                 {/* Floating Quick Links */}
+                 {searchData && searchData.links && searchData.links.length > 0 && (
+                   <div className="sticky top-0 z-20 w-full pb-4 pt-1 flex flex-wrap gap-2 justify-start bg-linear-to-b from-white via-white/95 to-transparent">
+                     {searchData.links.map((link, idx) => (
+                       <button
+                         key={idx}
+                         onClick={() => {
+                           setBrowserUrl(link.url);
+                           setIsBrowserMode(true);
+                           // @ts-ignore
+                           window.ipcRenderer?.send('resize-panel', { width: 800, height: 600 });
+                         }}
+                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-[11px] font-semibold text-gray-700 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] hover:border-purple-300 hover:text-purple-600 transition-all max-w-[180px] truncate cursor-pointer"
+                       >
+                         {link.title}
+                       </button>
+                     ))}
+                   </div>
+                 )}
+
                  {messages.length === 0 ? (
                    <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
                      Thinking...
                    </div>
                  ) : (
                    messages.map(msg => <Message key={msg.id} message={msg} variant="minimal" />)
+                 )}
+                 
+                 {isSearching && messages.length > 0 && (
+                   <div className="flex items-center justify-start py-2 ml-4">
+                     <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+                   </div>
+                 )}
+                 
+                 {searchData && searchData.imageUrl && (
+                   <div className="mt-2 mb-6 ml-4 max-w-[85%] rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                     <img src={searchData.imageUrl} alt="Search result" className="w-full h-auto max-h-[200px] object-cover" />
+                   </div>
                  )}
                  <div ref={messagesEndRef} />
               </div>
