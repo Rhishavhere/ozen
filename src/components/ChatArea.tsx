@@ -6,6 +6,7 @@ import { useGroq } from '../hooks/useGroq';
 import { Message as MessageType } from '../types/chat';
 import { saveConversation, generateTitle, getConversationById, getSettings } from '../lib/store';
 import { getEffectivePrompt } from '../lib/aiProfiles';
+import logo from '../../public/logo.svg';
 
 interface ChatAreaProps {
   loadConversationId?: string | null;
@@ -153,7 +154,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
           {messages.length === 0 ? (
             <div className="h-full mt-32 flex flex-col items-center justify-center text-gray-500">
               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-200">
-                <Bot className="w-10 h-10 text-gray-800" />
+                <img src="/logo.svg" alt="Ozen Logo" width="120" />
               </div>
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">How can I help you today?</h2>
               <p className="text-sm text-gray-500">Pick a model from the top to begin</p>
@@ -177,7 +178,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isGenerating || models.length === 0}
-            placeholder={models.length === 0 ? "Connecting..." : `Message ${isGroq ? 'Groq' : 'Ollama'}...`}
+            placeholder={models.length === 0 ? "Connecting..." : `Message ${isGroq ? 'Ozen' : 'Ozen'}...`}
             className="w-full bg-transparent resize-none max-h-[200px] min-h-[56px] pl-4 pr-12 py-4 outline-none text-gray-900 placeholder-gray-400 disabled:opacity-50"
             rows={1}
             style={{ overflowY: 'hidden' }}
@@ -196,7 +197,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ loadConversationId }) => {
           </button>
         </form>
         <div className="text-center mt-3 text-xs text-gray-400">
-          {isGroq ? 'Powered by Groq LPU™ Inference Engine.' : 'Ollama runs completely locally on your machine.'}
+          {isGroq ? 'Ozen Powered by Groq LPU™ Inference Engine.' : 'Ozen runs completely locally on your machine.'}
         </div>
       </div>
     </div>
