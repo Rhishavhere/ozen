@@ -4,7 +4,6 @@ export interface Message {
   content: string;
   searchData?: {
     imageUrls: string[];
-    links: { title: string; url: string }[];
   };
 }
 

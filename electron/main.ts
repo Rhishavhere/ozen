@@ -255,14 +255,13 @@ ipcMain.on('resize-panel', (_event, { width, height }) => {
 
 ipcMain.handle('fetch-search-results', async (_event, query) => {
   try {
-    const [images, results] = await Promise.all([
-      google.image(query, { safe: false }),
-      google.search(query, { parse_ads: false })
-    ]);
-    return {
-      imageUrls: images.slice(0, 3).map(img => img.url),
-      links: results.results.slice(0, 3).map(r => ({ title: r.title, url: r.url }))
+    const images = await google.image(query, { safe: false });
+    
+    const resultsData = {
+      imageUrls: images.slice(0, 3).map(img => img.url)
     };
+    console.log('Search Results for query:', query, resultsData);
+    return resultsData;
   } catch (err) {
     console.error('Failed to fetch search results:', err);
     return null;

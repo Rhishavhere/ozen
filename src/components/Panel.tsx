@@ -10,11 +10,6 @@ import { saveConversation, generateTitle, getSettings } from '../lib/store';
 import { addSearchEntry } from '../lib/searchHistory';
 import { getEffectivePrompt } from '../lib/aiProfiles';
 
-interface LatestSearchData {
-  imageUrls: string[];
-  links: { title: string; url: string }[];
-}
-
 export const Panel: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -24,7 +19,6 @@ export const Panel: React.FC = () => {
   const [isBrowserMode, setIsBrowserMode] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
   const [conversationId] = useState(() => Date.now().toString());
-  const [latestSearchData, setLatestSearchData] = useState<LatestSearchData | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
   const settings = getSettings();
@@ -95,12 +89,11 @@ export const Panel: React.FC = () => {
     const query = input.trim();
     setInput('');
     
-    setLatestSearchData(null);
     setIsSearching(true);
     // @ts-ignore
-    window.ipcRenderer?.invoke('fetch-search-results', query).then((res: LatestSearchData | null) => {
+    window.ipcRenderer?.invoke('fetch-search-results', query).then((res: any) => {
+      console.log('Renderer received search results:', res);
       if (res) {
-        setLatestSearchData(res);
         setMessages(prev => prev.map(msg => {
           if (msg.id === assistantMessageId) {
             return { ...msg, searchData: res };
@@ -109,7 +102,10 @@ export const Panel: React.FC = () => {
         }));
       }
       setIsSearching(false);
-    }).catch(() => setIsSearching(false));
+    }).catch((err: any) => {
+      console.error('Renderer failed to fetch search results:', err);
+      setIsSearching(false);
+    });
 
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
@@ -254,42 +250,24 @@ export const Panel: React.FC = () => {
                 <webview src={browserUrl} className="w-full flex-1 border-none" />
               </div>
             ) : (
-              <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar relative">
-                 {/* Floating Quick Links */}
-                 {latestSearchData && latestSearchData.links && latestSearchData.links.length > 0 && (
-                   <div className="sticky top-0 z-20 w-full pb-4 pt-1 flex flex-wrap gap-2 justify-start bg-linear-to-b from-white via-white/95 to-transparent">
-                     {latestSearchData.links.map((link, idx) => (
-                       <button
-                         key={idx}
-                         onClick={() => {
-                           setBrowserUrl(link.url);
-                           setIsBrowserMode(true);
-                           // @ts-ignore
-                           window.ipcRenderer?.send('resize-panel', { width: 800, height: 600 });
-                         }}
-                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-[11px] font-semibold text-gray-700 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] hover:border-purple-300 hover:text-purple-600 transition-all max-w-[180px] truncate cursor-pointer"
-                       >
-                         {link.title}
-                       </button>
-                     ))}
-                   </div>
-                 )}
-
-                 {messages.length === 0 ? (
-                   <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
-                     Thinking...
-                   </div>
-                 ) : (
-                   messages.map(msg => <Message key={msg.id} message={msg} variant="minimal" />)
-                 )}
-                 
-                 {isSearching && messages.length > 0 && (
-                   <div className="flex items-center justify-start py-2 ml-4">
-                     <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
-                   </div>
-                 )}
-                 
-                 <div ref={messagesEndRef} />
+              <div className="w-full h-full relative flex flex-col overflow-hidden">
+                 <div className="w-full h-full overflow-y-auto px-4 py-4 scroll-smooth flex-1 custom-scrollbar">
+                   {messages.length === 0 ? (
+                     <div className="flex items-center justify-center h-full text-gray-400 text-sm font-medium">
+                       Thinking...
+                     </div>
+                   ) : (
+                     messages.map(msg => <Message key={msg.id} message={msg} variant="minimal" />)
+                   )}
+                   
+                   {isSearching && messages.length > 0 && (
+                     <div className="flex items-center justify-start py-2 ml-4">
+                       <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+                     </div>
+                   )}
+                   
+                   <div ref={messagesEndRef} />
+                 </div>
               </div>
             )}
           </motion.div>
