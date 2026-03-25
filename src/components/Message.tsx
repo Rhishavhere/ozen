@@ -1,5 +1,8 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { User, Bot } from 'lucide-react';
 import { Message as MessageType } from '../types/chat';
 
@@ -20,7 +23,31 @@ export const Message: React.FC<MessageProps> = ({ message }) => {
           <div className="text-sm font-semibold text-gray-700 mb-1">{isUser ? 'You' : 'Ozen'}</div>
           <div className={`pr-4 py-3 rounded-2xl w-full ${isUser ? 'bg-gray-100 text-gray-900 rounded-tr-none' : 'bg-transparent text-gray-900'}`}>
             <div className="markdown-body text-base text-gray-800">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ node, inline, className, children, ...props }: any) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        {...props}
+                        style={vscDarkPlus}
+                        language={match[1]}
+                        PreTag="div"
+                        className="rounded-lg my-4!"
+                      >
+                        {String(children).replace(/\n$/, '')}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  }
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
           </div>
         </div>

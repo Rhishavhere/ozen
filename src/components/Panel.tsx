@@ -33,7 +33,7 @@ export const Panel: React.FC = () => {
     if (!isExpanded) {
       setIsExpanded(true);
        // @ts-ignore
-      window.ipcRenderer?.send('resize-panel', { width: 400, height: 400 });
+      window.ipcRenderer?.send('resize-panel', { width: 500, height: 400 });
     }
   };
 
