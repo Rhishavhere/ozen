@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, nativeTheme } from 'electron'
+import { app, BrowserWindow, clipboard, screen, ipcMain, Tray, Menu, nativeImage, nativeTheme } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -70,6 +70,69 @@ ipcMain.on('win-close', () => { win?.close(); });
 let orbWin: BrowserWindow | null;
 let orbTimeout: NodeJS.Timeout;
 let trackInterval: NodeJS.Timeout | null = null;
+let isOrbActiveDueToSelection = false;
+let isShiftPressed = false;
+
+// Clipboard tracking state
+let lastClipboardText = '';
+
+// function createOrbWindow() {
+//   const size = 60; 
+//   const point = screen.getCursorScreenPoint();
+  
+//   // Offset slightly down and to the right so it doesn't block the cursor or copied text
+//   const targetX = Math.round(point.x + 15);
+//   const targetY = Math.round(point.y + 15);
+
+//   if (orbWin) {
+//     // Use setBounds instead of setPosition (this is what the Panel uses, it's more reliable)
+//     orbWin.setBounds({ x: targetX, y: targetY, width: size, height: size });
+//     orbWin.showInactive();
+//   } else {
+//     orbWin = new BrowserWindow({
+//       width: size,
+//       height: size,
+//       x: targetX,
+//       y: targetY,
+//       frame: false,
+//       transparent: true,
+//       alwaysOnTop: true,
+//       skipTaskbar: true,
+//       resizable: false,
+//       focusable: false,
+//       show: false, 
+//       webPreferences: {
+//         preload: path.join(__dirname, "preload.mjs")
+//       }
+//     });
+
+//     orbWin.setIgnoreMouseEvents(true);
+
+//     if (VITE_DEV_SERVER_URL) {
+//       orbWin.loadURL(`${VITE_DEV_SERVER_URL}/#/orb`);
+//     } else {
+//       orbWin.loadFile(path.join(RENDERER_DIST, "index.html"), { hash: "/orb" });
+//     }
+    
+//     // Wait until the renderer is ready before showing to eliminate initial flicker
+//     orbWin.once('ready-to-show', () => {
+//       if (orbWin && !orbWin.isDestroyed()) {
+//         orbWin.showInactive();
+//       }
+//     });
+//   }
+
+//   // --- THE 60FPS TRACKING LOOP HAS BEEN DELETED ---
+
+//   // Auto-hide after 5 seconds
+//   if (orbTimeout) clearTimeout(orbTimeout);
+//   orbTimeout = setTimeout(() => {
+//     if (orbWin && !orbWin.isDestroyed()) {
+//       orbWin.hide();
+//       isOrbActiveDueToSelection = false;
+//     }
+//   }, 5000);
+// }
 
 function createOrbWindow() {
   const size = 60; // Larger window to allow the "zoop" animation space to breathe without clipping
@@ -130,6 +193,24 @@ function createOrbWindow() {
     }
   }, 5000);
 }
+
+async function copyAndQuery() {
+  const { clipboard } = await import('electron');
+  
+  // The text is already in the clipboard, so we just read it directly
+  const query = clipboard.readText();
+  
+  const point = screen.getCursorScreenPoint();
+  
+  // Pass the query safely to the panel
+  createPanelWindow(point.x, point.y + 10, query);
+
+  // Reset the state so Shift+Enter goes back to normal immediately
+  isOrbActiveDueToSelection = false;
+  if (orbWin) {
+    orbWin.hide();
+  }
+}
 let panelWin: BrowserWindow | null;
 
 function getClampedBounds(targetX: number, targetY: number, width: number, height: number, displayPoint: { x: number, y: number }) {
@@ -160,7 +241,7 @@ async function fetchActiveWindow() {
   return null;
 }
 
-async function createPanelWindow(x: number, y: number) {
+async function createPanelWindow(x: number, y: number, query?: string) {
   const bounds = getClampedBounds(x - 300, y - 40, 400, 60, { x, y });
 
   const activeWin = await fetchActiveWindow();
@@ -174,6 +255,9 @@ async function createPanelWindow(x: number, y: number) {
     panelWin.focus();
     panelWin.webContents.focus();
     panelWin.webContents.send('panel-activated', activeWin);
+    if (query) {
+      panelWin.webContents.send('panel-query', query);
+    }
     return;
   }
 
@@ -204,6 +288,9 @@ async function createPanelWindow(x: number, y: number) {
       panelWin.focus();
       panelWin.webContents.focus();
       panelWin.webContents.send('panel-activated', activeWin);
+      if (query) {
+        panelWin.webContents.send('panel-query', query);
+      }
     }
   });
 }
@@ -233,6 +320,22 @@ ipcMain.on('hide-panel', () => {
     panelWin.minimize();
     panelWin.hide();
   }
+});
+
+ipcMain.on('clip-text', (_event, text: string) => {
+  clipboard.writeText(text);
+  if (panelWin) {
+    panelWin.webContents.send('panel-reset');
+    panelWin.minimize();
+    panelWin.hide();
+  }
+  
+  // Wait for focus to return to the previous window then paste
+  setTimeout(() => {
+    // Send 5 backspaces to remove '@ozen' then paste
+    const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{BS}{BS}{BS}{BS}{BS}^v')`;
+    spawn('powershell', ['-Command', psCommand]);
+  }, 200);
 });
 
 ipcMain.on('open-in-desk', (_event, { url }) => {
@@ -317,7 +420,25 @@ app.whenReady().then(() => {
   const IGNORED_KEYS = [42, 54, 29, 3613, 56, 3640, 3675, 3676]; // Shift, Ctrl, Alt, Meta
   
   uIOhook.on("keydown", (e) => {
+    if (e.keycode === 42 || e.keycode === 54) isShiftPressed = true;
     if (IGNORED_KEYS.includes(e.keycode)) return;
+
+    // Handle Shift+Enter when Orb is active due to selection
+    // Enter: 28
+    if (e.keycode === 28 && (isShiftPressed || e.shiftKey)) {
+      if (isOrbActiveDueToSelection) {
+        copyAndQuery();
+        return;
+      }
+    }
+
+    // Handle Shift+Space to summon the panel instantly
+    // Space: 57
+    if (e.keycode === 57 && (isShiftPressed || e.shiftKey)) {
+      const point = screen.getCursorScreenPoint();
+      createPanelWindow(point.x, point.y + 20);
+      return;
+    }
 
     buffer.push(e.keycode);
     if (buffer.length > 5) buffer.shift();
@@ -331,6 +452,31 @@ app.whenReady().then(() => {
       }
     }
   });
+
+  uIOhook.on("keyup", (e) => {
+    if (e.keycode === 42 || e.keycode === 54) isShiftPressed = false;
+  });
+
+// Initialize baseline clipboard state
+  lastClipboardText = clipboard.readText();
+
+  // Poll clipboard every 500ms for new text
+  setInterval(() => {
+    const currentText = clipboard.readText();
+    
+    if (currentText && currentText.trim() !== '' && currentText !== lastClipboardText) {
+      lastClipboardText = currentText;
+      isOrbActiveDueToSelection = true;
+      
+      // We removed createOrbWindow() here so it stays completely silent!
+
+      // Keep the 5-second active window for the Shift+Enter hotkey
+      if (orbTimeout) clearTimeout(orbTimeout);
+      orbTimeout = setTimeout(() => {
+        isOrbActiveDueToSelection = false;
+      }, 5000);
+    }
+  }, 500);
 
   uIOhook.start();
 })
