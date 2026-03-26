@@ -232,6 +232,8 @@ async function copyAndQuery() {
   // The text is already in the clipboard, so we just read it directly
   const query = clipboard.readText();
   
+  console.log('[Shift+Enter] Triggered copyAndQuery with text:', query?.substring(0, 50) + '...');
+  
   const point = screen.getCursorScreenPoint();
   
   // Pass the query safely to the panel
@@ -239,6 +241,7 @@ async function copyAndQuery() {
 
   // Reset the state so Shift+Enter goes back to normal immediately
   isOrbActiveDueToSelection = false;
+  console.log('[Shift+Enter] Reset isOrbActiveDueToSelection to false');
   if (orbWin) {
     orbWin.hide();
   }
@@ -506,15 +509,21 @@ app.whenReady().then(() => {
   
   uIOhook.on("keydown", (e) => {
     try {
-      if (e.keycode === 42 || e.keycode === 54) isShiftPressed = true;
+      if (e.keycode === 42 || e.keycode === 54) {
+        isShiftPressed = true;
+        console.log('[Shift+Enter] Shift key pressed (keycode:', e.keycode, ')');
+      }
       if (IGNORED_KEYS.includes(e.keycode)) return;
 
       // Handle Shift+Enter when Orb is active due to selection
       // Enter: 28
       if (e.keycode === 28 && (isShiftPressed || e.shiftKey)) {
+        console.log('[Shift+Enter] Enter pressed with Shift. isOrbActiveDueToSelection:', isOrbActiveDueToSelection);
         if (isOrbActiveDueToSelection) {
           copyAndQuery();
           return;
+        } else {
+          console.log('[Shift+Enter] Ignored - no active selection detected');
         }
       }
 
@@ -543,13 +552,17 @@ app.whenReady().then(() => {
   });
 
   uIOhook.on("keyup", (e) => {
-    if (e.keycode === 42 || e.keycode === 54) isShiftPressed = false;
+    if (e.keycode === 42 || e.keycode === 54) {
+      isShiftPressed = false;
+      console.log('[Shift+Enter] Shift key released (keycode:', e.keycode, ')');
+    }
   });
 
 // Initialize baseline clipboard state
   lastClipboardText = clipboard.readText();
+  console.log('[Shift+Enter] Initialized clipboard tracking. Current text length:', lastClipboardText?.length || 0);
 
-  // Poll clipboard every 500ms for new text
+  // Poll clipboard every 100ms for new text (reduced from 500ms for better responsiveness)
   setInterval(() => {
     try {
       const currentText = clipboard.readText();
@@ -557,19 +570,22 @@ app.whenReady().then(() => {
       if (currentText && currentText.trim() !== '' && currentText !== lastClipboardText) {
         lastClipboardText = currentText;
         isOrbActiveDueToSelection = true;
+        console.log('[Shift+Enter] NEW CLIPBOARD TEXT DETECTED! Length:', currentText.length, 'Preview:', currentText.substring(0, 30) + '...');
+        console.log('[Shift+Enter] isOrbActiveDueToSelection set to TRUE. You have 10 seconds to press Shift+Enter.');
         
         // We removed createOrbWindow() here so it stays completely silent!
 
-        // Keep the 5-second active window for the Shift+Enter hotkey
+        // Keep the 10-second active window for the Shift+Enter hotkey (increased from 5s)
         if (orbTimeout) clearTimeout(orbTimeout);
         orbTimeout = setTimeout(() => {
           isOrbActiveDueToSelection = false;
-        }, 5000);
+          console.log('[Shift+Enter] 10-second timeout expired. isOrbActiveDueToSelection set to FALSE.');
+        }, 10000);
       }
     } catch (err) {
       console.error('Error reading clipboard:', err);
     }
-  }, 500);
+  }, 100);
 
   uIOhook.start();
 })
