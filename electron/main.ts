@@ -56,20 +56,43 @@ function createWindow() {
 }
 
 // Window control IPCs for custom title bar
-ipcMain.on('win-minimize', () => { win?.minimize(); });
-ipcMain.on('win-maximize', () => {
-  if (win?.isMaximized()) {
-    win.unmaximize();
-  } else {
-    win?.maximize();
+ipcMain.on('win-minimize', () => {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.minimize();
+    }
+  } catch (err) {
+    console.error('Error minimizing window:', err);
   }
 });
-ipcMain.on('win-close', () => { win?.close(); });
+
+ipcMain.on('win-maximize', () => {
+  try {
+    if (win && !win.isDestroyed()) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    }
+  } catch (err) {
+    console.error('Error maximizing/unmaximizing window:', err);
+  }
+});
+
+ipcMain.on('win-close', () => {
+  try {
+    if (win && !win.isDestroyed()) {
+      win.close();
+    }
+  } catch (err) {
+    console.error('Error closing window:', err);
+  }
+});
 
 
 let orbWin: BrowserWindow | null;
 let orbTimeout: NodeJS.Timeout;
-let trackInterval: NodeJS.Timeout | null = null;
 let isOrbActiveDueToSelection = false;
 let isShiftPressed = false;
 
@@ -135,29 +158,35 @@ let lastClipboardText = '';
 // }
 
 function createOrbWindow() {
-  const size = 60; // Larger window to allow the "zoop" animation space to breathe without clipping
-  
-  const getPosition = () => {
+  const orbWidth = 120;   // room for the 80px slide-in animation + 32px orb
+  const orbHeight = 60;
+
+  const getPos = () => {
     const point = screen.getCursorScreenPoint();
-    return { x: point.x, y: point.y };
+    return {
+      x: Math.round(point.x + 15),                        // just to the right of the cursor
+      y: Math.round(point.y - Math.round(orbHeight / 2)),  // vertically centered with cursor
+    };
   };
 
-  const initialPos = getPosition();
+  const pos = getPos();
 
   if (orbWin) {
-    orbWin.setPosition(initialPos.x, initialPos.y);
-    orbWin.show();
+    orbWin.setBounds({ x: pos.x, y: pos.y, width: orbWidth, height: orbHeight });
+    orbWin.showInactive();
   } else {
     orbWin = new BrowserWindow({
-      width: size,
-      height: size,
-      x: initialPos.x,
-      y: initialPos.y,
+      width: orbWidth,
+      height: orbHeight,
+      x: pos.x,
+      y: pos.y,
       frame: false,
       transparent: true,
       alwaysOnTop: true,
       skipTaskbar: true,
       resizable: false,
+      focusable: false,
+      show: false,
       webPreferences: {
         preload: path.join(__dirname, "preload.mjs")
       }
@@ -170,26 +199,29 @@ function createOrbWindow() {
     } else {
       orbWin.loadFile(path.join(RENDERER_DIST, "index.html"), { hash: "/orb" });
     }
+
+    orbWin.once('ready-to-show', () => {
+      if (orbWin && !orbWin.isDestroyed()) {
+        orbWin.showInactive();
+      }
+    });
   }
 
-  // Active tracking loop while visible
-  if (trackInterval) clearInterval(trackInterval);
-  trackInterval = setInterval(() => {
+  // Follow the cursor at 30fps using setBounds (smoother than setPosition on Windows)
+  let trackTimer: NodeJS.Timeout | null = setInterval(() => {
     if (orbWin && !orbWin.isDestroyed() && orbWin.isVisible()) {
-      const pos = getPosition();
-      orbWin.setPosition(pos.x, pos.y);
+      const p = getPos();
+      orbWin.setBounds({ x: p.x, y: p.y, width: orbWidth, height: orbHeight });
     }
-  }, 16); // ~60fps tracking
+  }, 33);
 
   // Auto-hide after 5 seconds
   if (orbTimeout) clearTimeout(orbTimeout);
   orbTimeout = setTimeout(() => {
+    if (trackTimer) { clearInterval(trackTimer); trackTimer = null; }
     if (orbWin && !orbWin.isDestroyed()) {
       orbWin.hide();
-      if (trackInterval) {
-        clearInterval(trackInterval);
-        trackInterval = null;
-      }
+      isOrbActiveDueToSelection = false;
     }
   }, 5000);
 }
@@ -242,7 +274,7 @@ async function fetchActiveWindow() {
 }
 
 async function createPanelWindow(x: number, y: number, query?: string) {
-  const bounds = getClampedBounds(x - 300, y - 40, 400, 60, { x, y });
+  const bounds = getClampedBounds(x - 200, y - 45, 420, 90, { x, y });
 
   const activeWin = await fetchActiveWindow();
 
@@ -314,66 +346,111 @@ app.on('activate', () => {
 });
 
 ipcMain.on('hide-panel', () => {
-  if (panelWin) {
-    // Minimizing before hiding is the "gold standard" on Windows 
-    // to force the OS to restore focus to the previously active application.
-    panelWin.minimize();
-    panelWin.hide();
+  try {
+    if (panelWin && !panelWin.isDestroyed()) {
+      // Minimizing before hiding is the "gold standard" on Windows 
+      // to force the OS to restore focus to the previously active application.
+      panelWin.minimize();
+      panelWin.hide();
+    }
+  } catch (err) {
+    console.error('Error hiding panel:', err);
   }
 });
 
 ipcMain.on('clip-text', (_event, text: string) => {
-  clipboard.writeText(text);
-  if (panelWin) {
-    panelWin.webContents.send('panel-reset');
-    panelWin.minimize();
-    panelWin.hide();
+  try {
+    if (!text || typeof text !== 'string') {
+      console.error('Invalid text provided to clip-text');
+      return;
+    }
+    
+    clipboard.writeText(text);
+    if (panelWin && !panelWin.isDestroyed()) {
+      panelWin.webContents.send('panel-reset');
+      panelWin.minimize();
+      panelWin.hide();
+    }
+    
+    // Wait for focus to return to the previous window then paste
+    setTimeout(() => {
+      try {
+        // Send 5 backspaces to remove '@ozen' then paste
+        const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{BS}{BS}{BS}{BS}{BS}^v')`;
+        const proc = spawn('powershell', ['-Command', psCommand]);
+        proc.on('error', (err) => {
+          console.error('Failed to execute paste command:', err);
+        });
+      } catch (err) {
+        console.error('Error spawning powershell for paste:', err);
+      }
+    }, 200);
+  } catch (err) {
+    console.error('Error in clip-text handler:', err);
   }
-  
-  // Wait for focus to return to the previous window then paste
-  setTimeout(() => {
-    // Send 5 backspaces to remove '@ozen' then paste
-    const psCommand = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{BS}{BS}{BS}{BS}{BS}^v')`;
-    spawn('powershell', ['-Command', psCommand]);
-  }, 200);
 });
 
 ipcMain.on('open-in-desk', (_event, { url }) => {
-  // If the Hub (main) window isn't open, create it
-  if (!win || win.isDestroyed()) {
-    createWindow();
-  }
-
-  // Once the window is ready, send the URL to open in the Browser tab
-  const sendUrl = () => {
-    if (win && !win.isDestroyed()) {
-      win.show();
-      win.focus();
-      win.webContents.send('navigate-browser', { url });
+  try {
+    // Validate URL
+    if (!url || typeof url !== 'string') {
+      console.error('Invalid URL provided to open-in-desk:', url);
+      return;
     }
-  };
 
-  // If the window is still loading, wait for it
-  if (win && !win.isDestroyed() && win.webContents.isLoading()) {
-    win.webContents.once('did-finish-load', sendUrl);
-  } else {
-    sendUrl();
+    // If the Hub (main) window isn't open, create it
+    if (!win || win.isDestroyed()) {
+      createWindow();
+    }
+
+    // Once the window is ready, send the URL to open in the Browser tab
+    const sendUrl = () => {
+      if (win && !win.isDestroyed()) {
+        win.show();
+        win.focus();
+        win.webContents.send('navigate-browser', { url });
+      }
+    };
+
+    // If the window is still loading, wait for it
+    if (win && !win.isDestroyed() && win.webContents.isLoading()) {
+      win.webContents.once('did-finish-load', sendUrl);
+    } else {
+      sendUrl();
+    }
+  } catch (err) {
+    console.error('Error in open-in-desk handler:', err);
   }
 });
 
 ipcMain.on('resize-panel', (_event, { width, height }) => {
-  if (panelWin) {
+  try {
+    if (!panelWin || panelWin.isDestroyed()) {
+      return;
+    }
+
+    if (typeof width !== 'number' || typeof height !== 'number' || width <= 0 || height <= 0) {
+      console.error('Invalid dimensions for resize-panel:', { width, height });
+      return;
+    }
+
     const currentBounds = panelWin.getBounds();
     // Expand upwards! Keep the bottom edge (the input bar) matching where the cursor was
     const targetY = currentBounds.y + currentBounds.height - height;
     const bounds = getClampedBounds(currentBounds.x, targetY, width, height, { x: currentBounds.x, y: currentBounds.y });
     
     panelWin.setBounds(bounds, true); // true for animation if OS supports it
+  } catch (err) {
+    console.error('Error resizing panel:', err);
   }
 });
 
 ipcMain.handle('fetch-search-results', async (_event, query) => {
   try {
+    if (!query || typeof query !== 'string') {
+      return { error: 'Invalid query parameter' };
+    }
+
     const images = await google.image(query, { safe: false });
     
     const resultsData = {
@@ -381,9 +458,9 @@ ipcMain.handle('fetch-search-results', async (_event, query) => {
     };
     console.log('Search Results for query:', query, resultsData);
     return resultsData;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to fetch search results:', err);
-    return null;
+    return { error: err.message || 'Failed to fetch search results' };
   }
 });
 
@@ -394,16 +471,24 @@ app.whenReady().then(() => {
   // Spawn ollama serve in background quietly
   try {
     const ollamaProcess = spawn('ollama', ['serve'], { detached: true, stdio: 'ignore', windowsHide: true });
+    ollamaProcess.on('error', (err) => {
+      console.error('Failed to spawn ollama process:', err);
+    });
     ollamaProcess.unref();
   } catch (e) {
     console.error('Failed to start ollama background service:', e);
+    // App continues but Ollama features will be unavailable
   }
 
   createOrbWindow(); // Now opens the Orb instead of the Main window on launch
 
-  // Create System Tray (Background Apps) Icon
-  const iconPath = path.join(process.env.VITE_PUBLIC, "logo.svg");
-  tray = new Tray(nativeImage.createFromPath(iconPath));
+  // Create System Tray Icon — use PNG since Windows can't render SVG in tray
+  const iconPath = path.join(process.env.VITE_PUBLIC, "logo.png");
+  let trayIcon = nativeImage.createFromPath(iconPath);
+  if (!trayIcon.isEmpty()) {
+    trayIcon = trayIcon.resize({ width: 16, height: 16 });
+  }
+  tray = new Tray(trayIcon);
   const contextMenu = Menu.buildFromTemplate([
     { label: "Open Ozen Hub", click: () => { createWindow() } },
     { type: "separator" },
@@ -420,36 +505,40 @@ app.whenReady().then(() => {
   const IGNORED_KEYS = [42, 54, 29, 3613, 56, 3640, 3675, 3676]; // Shift, Ctrl, Alt, Meta
   
   uIOhook.on("keydown", (e) => {
-    if (e.keycode === 42 || e.keycode === 54) isShiftPressed = true;
-    if (IGNORED_KEYS.includes(e.keycode)) return;
+    try {
+      if (e.keycode === 42 || e.keycode === 54) isShiftPressed = true;
+      if (IGNORED_KEYS.includes(e.keycode)) return;
 
-    // Handle Shift+Enter when Orb is active due to selection
-    // Enter: 28
-    if (e.keycode === 28 && (isShiftPressed || e.shiftKey)) {
-      if (isOrbActiveDueToSelection) {
-        copyAndQuery();
-        return;
+      // Handle Shift+Enter when Orb is active due to selection
+      // Enter: 28
+      if (e.keycode === 28 && (isShiftPressed || e.shiftKey)) {
+        if (isOrbActiveDueToSelection) {
+          copyAndQuery();
+          return;
+        }
       }
-    }
 
-    // Handle Shift+Space to summon the panel instantly
-    // Space: 57
-    if (e.keycode === 57 && (isShiftPressed || e.shiftKey)) {
-      const point = screen.getCursorScreenPoint();
-      createPanelWindow(point.x, point.y + 20);
-      return;
-    }
-
-    buffer.push(e.keycode);
-    if (buffer.length > 5) buffer.shift();
-    
-    if (buffer.length === 5) {
-      const isTarget = buffer.every((val, index) => val === TARGET[index]);
-      if (isTarget) {
-        buffer = []; // Clear buffer
+      // Handle Shift+Space to summon the panel instantly
+      // Space: 57
+      if (e.keycode === 57 && (isShiftPressed || e.shiftKey)) {
         const point = screen.getCursorScreenPoint();
         createPanelWindow(point.x, point.y + 20);
+        return;
       }
+
+      buffer.push(e.keycode);
+      if (buffer.length > 5) buffer.shift();
+      
+      if (buffer.length === 5) {
+        const isTarget = buffer.every((val, index) => val === TARGET[index]);
+        if (isTarget) {
+          buffer = []; // Clear buffer
+          const point = screen.getCursorScreenPoint();
+          createPanelWindow(point.x, point.y + 20);
+        }
+      }
+    } catch (err) {
+      console.error('Error in keydown handler:', err);
     }
   });
 
@@ -462,19 +551,23 @@ app.whenReady().then(() => {
 
   // Poll clipboard every 500ms for new text
   setInterval(() => {
-    const currentText = clipboard.readText();
-    
-    if (currentText && currentText.trim() !== '' && currentText !== lastClipboardText) {
-      lastClipboardText = currentText;
-      isOrbActiveDueToSelection = true;
+    try {
+      const currentText = clipboard.readText();
       
-      // We removed createOrbWindow() here so it stays completely silent!
+      if (currentText && currentText.trim() !== '' && currentText !== lastClipboardText) {
+        lastClipboardText = currentText;
+        isOrbActiveDueToSelection = true;
+        
+        // We removed createOrbWindow() here so it stays completely silent!
 
-      // Keep the 5-second active window for the Shift+Enter hotkey
-      if (orbTimeout) clearTimeout(orbTimeout);
-      orbTimeout = setTimeout(() => {
-        isOrbActiveDueToSelection = false;
-      }, 5000);
+        // Keep the 5-second active window for the Shift+Enter hotkey
+        if (orbTimeout) clearTimeout(orbTimeout);
+        orbTimeout = setTimeout(() => {
+          isOrbActiveDueToSelection = false;
+        }, 5000);
+      }
+    } catch (err) {
+      console.error('Error reading clipboard:', err);
     }
   }, 500);
 

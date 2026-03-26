@@ -56,6 +56,7 @@ export interface JobStatus {
 export class MembrainClient {
   private baseUrl: string;
   private apiKey: string;
+  private defaultTimeout = 30000; // 30 seconds
 
   constructor() {
     this.apiKey = import.meta.env.VITE_MEMBRAIN_API_KEY || "";
@@ -63,7 +64,31 @@ export class MembrainClient {
       import.meta.env.VITE_MEMBRAIN_API_URL ||
       "https://mem-brain-api-cutover-v4-production.up.railway.app";
     if (!this.apiKey) {
-      console.warn("Missing VITE_MEMBRAIN_API_KEY in environment");
+      console.warn("Missing VITE_MEMBRAIN_API_KEY in environment - API calls may fail");
+    }
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit = {},
+    timeout = this.defaultTimeout
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: options.signal || controller.signal,
+      });
+      clearTimeout(id);
+      return response;
+    } catch (error: any) {
+      clearTimeout(id);
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeout}ms`);
+      }
+      throw error;
     }
   }
 
@@ -78,7 +103,7 @@ export class MembrainClient {
       "X-API-Key": this.apiKey,
       ...options.headers,
     };
-    const response = await fetch(url, { ...options, headers, signal });
+    const response = await this.fetchWithTimeout(url, { ...options, headers, signal });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `HTTP ${response.status}`);
@@ -177,12 +202,28 @@ export class MembrainClient {
     return res.graph || res;
   }
 
-  async stats(): Promise<any> {
-    return this.request("/stats");
+  async stats(signal?: AbortSignal): Promise<any> {
+    const url = `${this.baseUrl}/api/v1/stats`;
+    const response = await this.fetchWithTimeout(url, {
+      headers: { "X-API-Key": this.apiKey },
+      signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch stats: HTTP ${response.status}`);
+    }
+    return response.json();
   }
 
-  async health(): Promise<any> {
-    return this.request("/health");
+  async health(signal?: AbortSignal): Promise<any> {
+    const url = `${this.baseUrl}/health`;
+    const response = await this.fetchWithTimeout(url, {
+      headers: { "X-API-Key": this.apiKey },
+      signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Health check failed: HTTP ${response.status}`);
+    }
+    return response.json();
   }
 
   async count(tag?: string): Promise<{ count: number }> {

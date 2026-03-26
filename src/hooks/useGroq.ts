@@ -6,6 +6,32 @@ import { getSettings } from "../lib/store";
 
 import { getAIConfig } from "../lib/aiProfiles";
 
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout = DEFAULT_TIMEOUT
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: options.signal || controller.signal,
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeout}ms`);
+    }
+    throw error;
+  }
+}
+
 export function useGroq() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +66,15 @@ export function useGroq() {
         .find((m) => m.role === "user");
       
       const shouldFetch = options?.source === 'panel' ? settings.membrainPanelFetch : settings.membrainDeskFetch;
-      const memoryContext = (lastUserMsg && shouldFetch)
-        ? await searchMemories(lastUserMsg.content)
-        : "";
+      let memoryContext = "";
+      if (lastUserMsg && shouldFetch) {
+        try {
+          memoryContext = await searchMemories(lastUserMsg.content);
+        } catch (e) {
+          console.error("Failed to fetch memory context for Groq:", e);
+          // Continue without memory context
+        }
+      }
 
       // Build final message array — unify system message if memory found
       let messagesWithMemory: Message[] = [...messages];
@@ -69,11 +101,14 @@ export function useGroq() {
       // ── MEMBRAIN: Store user message in background ────────────────────────
       const timeTags = getTimeTags();
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.groq", "type.user-message", ...timeTags]);
+        addMemory(lastUserMsg.content, ["source.groq", "type.user-message", ...timeTags])
+          .catch(e => {
+            console.error("Failed to store user message in memory (Groq):", e);
+          });
       }
       // ─────────────────────────────────────────────────────────────────────
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         "https://api.groq.com/openai/v1/chat/completions",
         {
           method: "POST",
@@ -100,7 +135,9 @@ export function useGroq() {
         try {
           const parsed = JSON.parse(errorText);
           if (parsed.error?.message) errMsg = parsed.error.message;
-        } catch (e) {}
+        } catch (e) {
+          console.error("Failed to parse Groq error response:", e, "Raw text:", errorText);
+        }
         throw new Error(`Groq API Error: ${response.status} - ${errMsg}`);
       }
 
@@ -134,7 +171,9 @@ export function useGroq() {
                 totalTokens = data.usage.total_tokens;
                 exactUsageFound = true;
               }
-            } catch (e) {}
+            } catch (e) {
+              console.error("Failed to parse Groq stream chunk:", e, "Line:", line);
+            }
           }
         }
       }
@@ -149,7 +188,9 @@ export function useGroq() {
         addMemory(
           `[AI Response to "${lastUserMsg?.content?.slice(0, 80) || 'unknown'}"] ${responseText.slice(0, 2000)}`,
           ["source.groq", "type.ai-response", `model.${model}`, ...timeTags]
-        );
+        ).catch(e => {
+          console.error("Failed to store AI response in memory (Groq):", e);
+        });
       }
     } catch (err: any) {
       console.error(err);

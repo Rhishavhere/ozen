@@ -16,7 +16,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['uiohook-napi'],
+              external: ['uiohook-napi', 'active-win', 'googlethis'],
             },
           },
         },

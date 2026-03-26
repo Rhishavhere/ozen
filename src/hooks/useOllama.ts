@@ -6,6 +6,31 @@ import { getAIConfig } from "../lib/aiProfiles";
 import { getSettings } from "../lib/store";
 
 const OLLAMA_URL = "http://localhost:11434";
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout = DEFAULT_TIMEOUT
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: options.signal || controller.signal,
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeout}ms`);
+    }
+    throw error;
+  }
+}
 
 export function useOllama() {
   const [models, setModels] = useState<OllamaModel[]>([]);
@@ -14,7 +39,7 @@ export function useOllama() {
 
   const fetchModels = useCallback(async () => {
     try {
-      const response = await fetch(`${OLLAMA_URL}/api/tags`);
+      const response = await fetchWithTimeout(`${OLLAMA_URL}/api/tags`);
       if (!response.ok) throw new Error("Failed to fetch models from Ollama");
       const data = await response.json();
       setModels(data.models || []);
@@ -82,11 +107,13 @@ export function useOllama() {
       const timeTags = getTimeTags();
       if (lastUserMsg) {
         addMemory(lastUserMsg.content, ["source.ollama", "type.user-message", ...timeTags])
-          .catch(e => console.error("Memory store failed:", e));
+          .catch(e => {
+            console.error("Failed to store user message in memory (Ollama):", e);
+          });
       }
       // ─────────────────────────────────────────────────────────────────────
 
-      const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+      const response = await fetchWithTimeout(`${OLLAMA_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -140,7 +167,9 @@ export function useOllama() {
         addMemory(
           `[AI Response to "${lastUserMsg?.content?.slice(0, 80) || 'unknown'}"] ${fullContent.slice(0, 2000)}`,
           ["source.ollama", "type.ai-response", `model.${modelName}`, ...timeTags]
-        );
+        ).catch(e => {
+          console.error("Failed to store AI response in memory (Ollama):", e);
+        });
       }
     } catch (err: any) {
       setError(err.message || "Error during generation");
