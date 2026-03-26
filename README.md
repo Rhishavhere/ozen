@@ -2,14 +2,13 @@
   <img src="public/logo.svg" alt="Ozen Logo" width="120" />
   <h1>Ozen</h1>
   <p><strong>The Near-Invisible OS Layer for Local Intelligence</strong></p>
-
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg?style=for-the-badge)](https://github.com/Rhishavhere/ozen)
-[![Electron](https://img.shields.io/badge/Electron-30.0-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
-[![React](https://img.shields.io/badge/React-18.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.2-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-[![Local AI](https://img.shields.io/badge/Local_AI-Ollama-FF69B4?style=for-the-badge&logo=ollama)](https://ollama.com/)
-[![Cloud AI](https://img.shields.io/badge/Cloud_AI-Groq-F55036?style=for-the-badge&logo=groq)](https://groq.com/)
-
+  
+  [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg?style=for-the-badge)](https://github.com/Rhishavhere/ozen)
+  [![Electron](https://img.shields.io/badge/Electron-30.0-47848F?style=for-the-badge&logo=electron)](https://www.electronjs.org/)
+  [![React](https://img.shields.io/badge/React-18.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
+  [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.2-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+  [![Local AI](https://img.shields.io/badge/Local_AI-Ollama-FF69B4?style=for-the-badge&logo=ollama)](https://ollama.com/)
+  [![Cloud AI](https://img.shields.io/badge/Cloud_AI-Groq-F55036?style=for-the-badge&logo=groq)](https://groq.com/)
 </div>
 
 <div align="center">
