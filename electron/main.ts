@@ -92,7 +92,12 @@ ipcMain.on('win-close', () => {
 
 
 let orbWin: BrowserWindow | null;
-let orbTimeout: NodeJS.Timeout;
+/** Auto-hide timeout for the orb window (5 s after showing). */
+let orbTimeout: NodeJS.Timeout | null = null;
+/** Module-scope tracking interval — lifted here so it can be cleared before restarting. */
+let trackTimer: NodeJS.Timeout | null = null;
+/** Separate timeout for the clipboard-triggered Shift+Enter activation window. */
+let clipboardTimeout: NodeJS.Timeout | null = null;
 let isOrbActiveDueToSelection = false;
 let isShiftPressed = false;
 
@@ -208,7 +213,9 @@ function createOrbWindow() {
   }
 
   // Follow the cursor at 30fps using setBounds (smoother than setPosition on Windows)
-  let trackTimer: NodeJS.Timeout | null = setInterval(() => {
+  // Bug fix: clear any pre-existing tracking interval before starting a new one.
+  if (trackTimer) { clearInterval(trackTimer); trackTimer = null; }
+  trackTimer = setInterval(() => {
     if (orbWin && !orbWin.isDestroyed() && orbWin.isVisible()) {
       const p = getPos();
       orbWin.setBounds({ x: p.x, y: p.y, width: orbWidth, height: orbHeight });
@@ -490,6 +497,10 @@ app.whenReady().then(() => {
   let trayIcon = nativeImage.createFromPath(iconPath);
   if (!trayIcon.isEmpty()) {
     trayIcon = trayIcon.resize({ width: 16, height: 16 });
+  } else {
+    // Bug fix: guard against missing/invalid icon to prevent crash at startup.
+    console.warn('[Tray] logo.png not found or empty at:', iconPath, '– using empty fallback icon');
+    trayIcon = nativeImage.createEmpty();
   }
   tray = new Tray(trayIcon);
   const contextMenu = Menu.buildFromTemplate([
@@ -576,8 +587,9 @@ app.whenReady().then(() => {
         // We removed createOrbWindow() here so it stays completely silent!
 
         // Keep the 10-second active window for the Shift+Enter hotkey (increased from 5s)
-        if (orbTimeout) clearTimeout(orbTimeout);
-        orbTimeout = setTimeout(() => {
+        // Bug fix: use clipboardTimeout (not orbTimeout) so orb auto-hide isn't cancelled.
+        if (clipboardTimeout) clearTimeout(clipboardTimeout);
+        clipboardTimeout = setTimeout(() => {
           isOrbActiveDueToSelection = false;
           console.log('[Shift+Enter] 10-second timeout expired. isOrbActiveDueToSelection set to FALSE.');
         }, 10000);

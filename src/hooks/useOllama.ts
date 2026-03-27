@@ -16,16 +16,29 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
+  // Forward caller abort to controller so both signals are honoured
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(id);
+      controller.abort();
+    } else {
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
   try {
     const response = await fetch(url, {
       ...options,
-      signal: options.signal || controller.signal,
+      signal: controller.signal, // always use controller signal
     });
     clearTimeout(id);
     return response;
   } catch (error: any) {
     clearTimeout(id);
     if (error.name === 'AbortError') {
+      if (options.signal?.aborted) {
+        throw new DOMException('Request was cancelled by caller', 'AbortError');
+      }
       throw new Error(`Request timeout after ${timeout}ms`);
     }
     throw error;

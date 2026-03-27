@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Info, Bot } from 'lucide-react';
+import { Send, Loader2, Info } from 'lucide-react';
 import { Message } from './Message';
 import { useOllama } from '../hooks/useOllama';
 import { useGroq } from '../hooks/useGroq';
 import { Message as MessageType } from '../types/chat';
 import { saveConversation, generateTitle, getConversationById, getSettings } from '../lib/store';
 import { getEffectivePrompt } from '../lib/aiProfiles';
-import logo from '../../public/logo.svg';
 
 interface ChatAreaProps {
   loadConversationId?: string | null;

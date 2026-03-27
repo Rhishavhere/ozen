@@ -8,6 +8,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  copyFailed: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -17,6 +18,7 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      copyFailed: false,
     };
   }
 
@@ -37,6 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      copyFailed: false,
     });
     // Reload the page to reset state
     window.location.reload();
@@ -80,15 +83,27 @@ export class ErrorBoundary extends Component<Props, State> {
                 Reload Application
               </button>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    `Error: ${this.state.error?.toString()}\n\nStack: ${this.state.errorInfo?.componentStack}`
-                  );
+                onClick={async () => {
+                  // Bug fix: clipboard.writeText returns a Promise that can reject
+                  // (permissions denied, insecure context, etc.). Await and catch it.
+                  try {
+                    await navigator.clipboard.writeText(
+                      `Error: ${this.state.error?.toString()}\n\nStack: ${this.state.errorInfo?.componentStack}`
+                    );
+                    this.setState({ copyFailed: false });
+                  } catch {
+                    this.setState({ copyFailed: true });
+                  }
                 }}
                 className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
               >
                 Copy Error Details
               </button>
+              {this.state.copyFailed && (
+                <span className="text-red-400 text-sm self-center">
+                  ⚠️ Could not copy — clipboard access denied
+                </span>
+              )}
             </div>
           </div>
         </div>

@@ -76,16 +76,32 @@ export class MembrainClient {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
 
+    // Combine caller signal with timeout controller so both work independently.
+    // When the caller signal fires, we forward it to the controller so the
+    // timeout branch also gets cleaned up.
+    if (options.signal) {
+      if (options.signal.aborted) {
+        clearTimeout(id);
+        controller.abort();
+      } else {
+        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+    }
+
     try {
       const response = await fetch(url, {
         ...options,
-        signal: options.signal || controller.signal,
+        signal: controller.signal, // always use the controller's signal
       });
       clearTimeout(id);
       return response;
     } catch (error: any) {
       clearTimeout(id);
       if (error.name === 'AbortError') {
+        // Distinguish timeout from caller-initiated cancellation
+        if (options.signal?.aborted) {
+          throw new DOMException('Request was cancelled by caller', 'AbortError');
+        }
         throw new Error(`Request timeout after ${timeout}ms`);
       }
       throw error;
@@ -215,15 +231,8 @@ export class MembrainClient {
   }
 
   async health(signal?: AbortSignal): Promise<any> {
-    const url = `${this.baseUrl}/health`;
-    const response = await this.fetchWithTimeout(url, {
-      headers: { "X-API-Key": this.apiKey },
-      signal,
-    });
-    if (!response.ok) {
-      throw new Error(`Health check failed: HTTP ${response.status}`);
-    }
-    return response.json();
+    // Bug fix: use /api/v1/health to match the API base prefix used by request()
+    return this.request('/health', {}, signal);
   }
 
   async count(tag?: string): Promise<{ count: number }> {

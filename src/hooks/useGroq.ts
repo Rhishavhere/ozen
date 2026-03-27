@@ -16,16 +16,29 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
+  // Forward caller abort to controller so both signals are honoured
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(id);
+      controller.abort();
+    } else {
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
   try {
     const response = await fetch(url, {
       ...options,
-      signal: options.signal || controller.signal,
+      signal: controller.signal, // always use controller signal
     });
     clearTimeout(id);
     return response;
   } catch (error: any) {
     clearTimeout(id);
     if (error.name === 'AbortError') {
+      if (options.signal?.aborted) {
+        throw new DOMException('Request was cancelled by caller', 'AbortError');
+      }
       throw new Error(`Request timeout after ${timeout}ms`);
     }
     throw error;
@@ -69,7 +82,14 @@ export function useGroq() {
       let memoryContext = "";
       if (lastUserMsg && shouldFetch) {
         try {
-          memoryContext = await searchMemories(lastUserMsg.content);
+          // Bug fix: searchMemories returns a structured object, not a string.
+          // Parse it the same way useOllama does to avoid [object Object] in the prompt.
+          const memResponse = await searchMemories(lastUserMsg.content, 5, 'both');
+          if (memResponse?.interpreted?.answer_summary) {
+            memoryContext = memResponse.interpreted.answer_summary;
+          } else if (memResponse?.results?.length > 0) {
+            memoryContext = memResponse.results.map((r: any) => `- ${r.content}`).join('\n');
+          }
         } catch (e) {
           console.error("Failed to fetch memory context for Groq:", e);
           // Continue without memory context
