@@ -6,6 +6,45 @@ import { getSettings } from "../lib/store";
 
 import { getAIConfig } from "../lib/aiProfiles";
 
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout = DEFAULT_TIMEOUT
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  // Forward caller abort to controller so both signals are honoured
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(id);
+      controller.abort();
+    } else {
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal, // always use controller signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      if (options.signal?.aborted) {
+        throw new DOMException('Request was cancelled by caller', 'AbortError');
+      }
+      throw new Error(`Request timeout after ${timeout}ms`);
+    }
+    throw error;
+  }
+}
+
 export function useGroq() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +79,22 @@ export function useGroq() {
         .find((m) => m.role === "user");
       
       const shouldFetch = options?.source === 'panel' ? settings.membrainPanelFetch : settings.membrainDeskFetch;
-      const memoryContext = (lastUserMsg && shouldFetch)
-        ? await searchMemories(lastUserMsg.content)
-        : "";
+      let memoryContext = "";
+      if (lastUserMsg && shouldFetch) {
+        try {
+          // Bug fix: searchMemories returns a structured object, not a string.
+          // Parse it the same way useOllama does to avoid [object Object] in the prompt.
+          const memResponse = await searchMemories(lastUserMsg.content, 5, 'both');
+          if (memResponse?.interpreted?.answer_summary) {
+            memoryContext = memResponse.interpreted.answer_summary;
+          } else if (memResponse?.results?.length > 0) {
+            memoryContext = memResponse.results.map((r: any) => `- ${r.content}`).join('\n');
+          }
+        } catch (e) {
+          console.error("Failed to fetch memory context for Groq:", e);
+          // Continue without memory context
+        }
+      }
 
       // Build final message array — unify system message if memory found
       let messagesWithMemory: Message[] = [...messages];
@@ -69,11 +121,14 @@ export function useGroq() {
       // ── MEMBRAIN: Store user message in background ────────────────────────
       const timeTags = getTimeTags();
       if (lastUserMsg) {
-        addMemory(lastUserMsg.content, ["source.groq", "type.user-message", ...timeTags]);
+        addMemory(lastUserMsg.content, ["source.groq", "type.user-message", ...timeTags])
+          .catch(e => {
+            console.error("Failed to store user message in memory (Groq):", e);
+          });
       }
       // ─────────────────────────────────────────────────────────────────────
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         "https://api.groq.com/openai/v1/chat/completions",
         {
           method: "POST",
@@ -100,7 +155,9 @@ export function useGroq() {
         try {
           const parsed = JSON.parse(errorText);
           if (parsed.error?.message) errMsg = parsed.error.message;
-        } catch (e) {}
+        } catch (e) {
+          console.error("Failed to parse Groq error response:", e, "Raw text:", errorText);
+        }
         throw new Error(`Groq API Error: ${response.status} - ${errMsg}`);
       }
 
@@ -134,7 +191,9 @@ export function useGroq() {
                 totalTokens = data.usage.total_tokens;
                 exactUsageFound = true;
               }
-            } catch (e) {}
+            } catch (e) {
+              console.error("Failed to parse Groq stream chunk:", e, "Line:", line);
+            }
           }
         }
       }
@@ -149,7 +208,9 @@ export function useGroq() {
         addMemory(
           `[AI Response to "${lastUserMsg?.content?.slice(0, 80) || 'unknown'}"] ${responseText.slice(0, 2000)}`,
           ["source.groq", "type.ai-response", `model.${model}`, ...timeTags]
-        );
+        ).catch(e => {
+          console.error("Failed to store AI response in memory (Groq):", e);
+        });
       }
     } catch (err: any) {
       console.error(err);

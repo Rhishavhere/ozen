@@ -114,16 +114,19 @@ export const Panel: React.FC = () => {
       setIsSearching(true);
       // @ts-ignore
       window.ipcRenderer?.invoke('fetch-search-results', query.trim()).then((res: any) => {
-        if (res) {
+        if (res && !res.error) {
           setMessages(prev => prev.map(msg => {
             if (msg.id === assistantMessageId) {
               return { ...msg, searchData: res };
             }
             return msg;
           }));
+        } else if (res?.error) {
+          console.error('Image search failed:', res.error);
         }
         setIsSearching(false);
       }).catch((err: any) => {
+        console.error('Error fetching search results:', err);
         setIsSearching(false);
       });
     }

@@ -468,10 +468,15 @@ export default function MemoryView() {
   }
 
   async function handleLoadGraph() {
-    const [g, h] = await Promise.all([mem.graphExport(), mem.hubs(12)]);
-    if (g) setGraphData(g);
-    if (h) setHubs(h.hubs || []);
-    if (!g) showStatus(false, mem.error || "Graph load failed");
+    try {
+      const [g, h] = await Promise.all([mem.graphExport(), mem.hubs(12)]);
+      if (g) setGraphData(g);
+      if (h) setHubs(h.hubs || []);
+      if (!g) showStatus(false, mem.error || "Graph load failed");
+    } catch (err: any) {
+      console.error("Graph load error:", err);
+      showStatus(false, err.message || "Failed to load graph data");
+    }
   }
 
   async function handleNeighborhood() {
@@ -490,10 +495,15 @@ export default function MemoryView() {
   }
 
   async function handleStats() {
-    const [s, hlth] = await Promise.all([mem.stats(), mem.health()]);
-    if (s) setStatsData(s);
-    if (hlth) setHealthData(hlth);
-    if (!s) showStatus(false, mem.error || "Stats load failed");
+    try {
+      const [s, hlth] = await Promise.all([mem.stats(), mem.health()]);
+      if (s) setStatsData(s);
+      if (hlth) setHealthData(hlth);
+      if (!s) showStatus(false, mem.error || "Stats load failed");
+    } catch (err: any) {
+      console.error("Stats load error:", err);
+      showStatus(false, err.message || "Failed to load stats data");
+    }
   }
 
   async function handleCount() {

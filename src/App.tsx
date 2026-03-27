@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { HubLayout } from './components/Desk/HubLayout';
 import { Panel } from './components/Panel';
 import { Orb } from './components/Orb';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   const [route, setRoute] = useState(window.location.hash);
@@ -14,22 +15,28 @@ function App() {
 
   if (route === '#/panel') {
     return (
-      <div className="w-screen h-screen m-0 overflow-hidden bg-transparent p-2">
-        <Panel />
-      </div>
+      <ErrorBoundary>
+        <div className="w-screen h-screen m-0 overflow-hidden bg-transparent p-2">
+          <Panel />
+        </div>
+      </ErrorBoundary>
     );
   }
 
   if (route === '#/orb') {
     return (
-      <div className="w-full h-full m-0 p-0 overflow-hidden bg-transparent flex items-center justify-center">
-        <Orb />
-      </div>
+      <ErrorBoundary>
+        <div className="w-full h-full m-0 p-0 overflow-hidden bg-transparent flex items-center justify-center">
+          <Orb />
+        </div>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <HubLayout />
+    <ErrorBoundary>
+      <HubLayout />
+    </ErrorBoundary>
   );
 }
 
