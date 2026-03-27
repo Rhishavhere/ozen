@@ -239,7 +239,7 @@ async function copyAndQuery() {
   // The text is already in the clipboard, so we just read it directly
   const query = clipboard.readText();
   
-  console.log('[Shift+Enter] Triggered copyAndQuery with text:', query?.substring(0, 50) + '...');
+  console.log('[Shift+Enter] Triggered copyAndQuery; clipboard text length:', query ? query.length : 0);
   
   const point = screen.getCursorScreenPoint();
   
@@ -402,10 +402,31 @@ ipcMain.on('clip-text', (_event, text: string) => {
 
 ipcMain.on('open-in-desk', (_event, { url }) => {
   try {
-    // Validate URL
+    // Validate URL: must be a non-empty string
     if (!url || typeof url !== 'string') {
-      console.error('Invalid URL provided to open-in-desk:', url);
+      console.error('Invalid URL provided to open-in-desk (must be a non-empty string):', url);
       return;
+    }
+
+    // Allow about:blank as a safe blank page before full URL parsing
+    if (url === 'about:blank') {
+      // fall through to window logic below
+    } else {
+      // Parse and validate URL scheme to prevent loading dangerous protocols
+      // (e.g. file:, javascript:, data:) via a potentially compromised renderer.
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch (parseErr) {
+        console.error('Invalid URL provided to open-in-desk (failed to parse):', url, parseErr);
+        return;
+      }
+
+      const allowedProtocols = new Set(['http:', 'https:']);
+      if (!allowedProtocols.has(parsedUrl.protocol)) {
+        console.error('Disallowed URL protocol in open-in-desk:', parsedUrl.protocol, 'for URL:', url);
+        return;
+      }
     }
 
     // If the Hub (main) window isn't open, create it
@@ -581,7 +602,7 @@ app.whenReady().then(() => {
       if (currentText && currentText.trim() !== '' && currentText !== lastClipboardText) {
         lastClipboardText = currentText;
         isOrbActiveDueToSelection = true;
-        console.log('[Shift+Enter] NEW CLIPBOARD TEXT DETECTED! Length:', currentText.length, 'Preview:', currentText.substring(0, 30) + '...');
+        console.log('[Shift+Enter] NEW CLIPBOARD TEXT DETECTED! Length:', currentText.length, '(content not logged)');
         console.log('[Shift+Enter] isOrbActiveDueToSelection set to TRUE. You have 10 seconds to press Shift+Enter.');
         
         // We removed createOrbWindow() here so it stays completely silent!
