@@ -6,7 +6,7 @@ const SETTINGS_KEY = 'ozen-settings';
 
 // ─── Defaults ──────────────────────────────────────
 const DEFAULT_SETTINGS: OzenSettings = {
-  provider: 'groq',
+  provider: 'ollama',  // Changed from 'groq' to 'ollama' - works without API key
   panelModel: 'gemma3:1b',
   groqModel: 'llama-3.1-8b-instant',
   userName: 'Rhishav',

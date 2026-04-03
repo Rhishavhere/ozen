@@ -7,6 +7,15 @@ import google from 'googlethis'
 // @ts-ignore
 import activeWindow from 'active-win'
 
+// Suppress deprecation warning for url.parse() used in dependencies (googlethis)
+process.removeAllListeners('warning');
+process.on('warning', (warning) => {
+  if (warning.name === 'DeprecationWarning' && warning.message.includes('url.parse()')) {
+    return; // Suppress url.parse() deprecation warnings from dependencies
+  }
+  console.warn(warning);
+});
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // The built directory structure
