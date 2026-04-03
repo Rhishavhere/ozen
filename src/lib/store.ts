@@ -16,6 +16,8 @@ const DEFAULT_SETTINGS: OzenSettings = {
   deskSearchEngine: 'google',
   membrainPanelFetch: true,
   membrainDeskFetch: true,
+  membrainApiKey: '',
+  membrainApiUrl: 'https://mem-brain-api-cutover-v4-production.up.railway.app',
 };
 
 // ─── Conversations ─────────────────────────────────

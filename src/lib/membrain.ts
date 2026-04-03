@@ -1,3 +1,5 @@
+import { getSettings } from "./store";
+
 export interface MemoryNode {
   id: string;
   content: string;
@@ -54,17 +56,25 @@ export interface JobStatus {
 }
 
 export class MembrainClient {
-  private baseUrl: string;
-  private apiKey: string;
   private defaultTimeout = 30000; // 30 seconds
 
-  constructor() {
-    this.apiKey = import.meta.env.VITE_MEMBRAIN_API_KEY || "";
-    this.baseUrl =
+  private get apiKey(): string {
+    const settings = getSettings();
+    return settings.membrainApiKey || import.meta.env.VITE_MEMBRAIN_API_KEY || "";
+  }
+
+  private get baseUrl(): string {
+    const settings = getSettings();
+    return (
+      settings.membrainApiUrl ||
       import.meta.env.VITE_MEMBRAIN_API_URL ||
-      "https://mem-brain-api-cutover-v4-production.up.railway.app";
+      "https://mem-brain-api-cutover-v4-production.up.railway.app"
+    );
+  }
+
+  constructor() {
     if (!this.apiKey) {
-      console.warn("Missing VITE_MEMBRAIN_API_KEY in environment - API calls may fail");
+      console.warn("No Membrain API key configured — set it in Settings or VITE_MEMBRAIN_API_KEY");
     }
   }
 

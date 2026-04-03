@@ -207,6 +207,30 @@ export const SettingsView: React.FC = () => {
               </div>
               
               <div className="space-y-4">
+                <div className="space-y-2 px-1">
+                  <p className="text-[13px] font-bold text-gray-800">Membrain API Key</p>
+                  <p className="text-[11px] text-gray-400 font-medium">Required for memory to persist between sessions.</p>
+                  <input
+                    type="password"
+                    value={settings.membrainApiKey || ''}
+                    onChange={e => handleChange('membrainApiKey', e.target.value)}
+                    placeholder="Enter your Membrain API key…"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                  />
+                </div>
+
+                <div className="space-y-2 px-1">
+                  <p className="text-[13px] font-bold text-gray-800">Membrain API URL</p>
+                  <p className="text-[11px] text-gray-400 font-medium">Leave blank to use the default endpoint.</p>
+                  <input
+                    type="text"
+                    value={settings.membrainApiUrl || ''}
+                    onChange={e => handleChange('membrainApiUrl', e.target.value)}
+                    placeholder="https://mem-brain-api-cutover-v4-production.up.railway.app"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                  />
+                </div>
+
                 <div className="flex items-center justify-between px-1">
                   <div>
                     <p className="text-[13px] font-bold text-gray-800">Floating Panel Memory Fetch</p>
