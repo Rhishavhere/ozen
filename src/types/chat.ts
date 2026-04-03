@@ -33,6 +33,8 @@ export interface OzenSettings {
   deskSearchEngine?: 'google' | 'duckduckgo';
   membrainPanelFetch: boolean;
   membrainDeskFetch: boolean;
+  membrainApiKey: string;
+  membrainApiUrl: string;
 }
 
 export interface OllamaModel {

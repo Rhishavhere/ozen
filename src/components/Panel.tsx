@@ -86,10 +86,60 @@ export const Panel: React.FC = () => {
     }, 50);
   };
 
+  // Smart detection for when to show images
+  const shouldShowImages = (query: string): boolean => {
+    const q = query.toLowerCase().trim();
+    
+    // Explicitly show images if the user is asking for them
+    if (q.includes('picture') || q.includes('image') || q.includes('photo') || q.includes('show me') || q.includes('look like') || q.includes('looks like')) {
+      return true;
+    }
+
+    // Explicitly do not show for commands/text generation (including common typos)
+    const noImageKeywords = [
+      'poem', 'poen', 'write', 'create', 'generate', 'code', 'function', 'algorithm', 
+      'calculate', 'solve', 'summarize', 'translate', 'convert', 'give me', 'tell me',
+      'how to', 'explain', 'story', 'essay', 'letter', 'what was'
+    ];
+    
+    if (noImageKeywords.some(keyword => q.includes(keyword))) {
+      return false;
+    }
+    
+    // Explicitly show for visual/factual identity queries
+    const imageKeywords = [
+      'who is', 'who are', 'what is', 'what are', 'where is', 'where are',
+      'identify', 'famous', 'celebrity', 'actor', 'singer', 'athlete',
+      'country', 'city', 'place', 'building', 'monument', 'product', 'brand'
+    ];
+    
+    if (imageKeywords.some(keyword => q.includes(keyword))) {
+      return true;
+    }
+    
+    // Broad catch-all: if it's a short query (<= 5 words), it's likely a noun phrase (e.g., "prince of dubai").
+    // We filter out common conversational phrases and action verbs to prevent showing images for questions.
+    const words = q.split(/\s+/);
+    if (words.length <= 5) {
+      const conversational = ['hi', 'hello', 'hey', 'help', 'thanks', 'ok', 'yes', 'no', 'why', 'how'];
+      if (conversational.includes(q)) return false;
+      
+      const actionVerbs = ['do', 'can', 'could', 'should', 'would', 'is', 'are', 'was', 'were', 'make', 'get', 'give', 'tell', 'write', 'find', 'search'];
+      if (actionVerbs.includes(words[0])) return false;
+      
+      return true;
+    }
+    
+    return false;
+  };
+
   const handleSubmit = async (e?: React.FormEvent, triggerImageSearch: boolean = false, overrideQuery?: string) => {
     e?.preventDefault();
     const query = overrideQuery || input.trim();
     if (!query.trim() || isGenerating) return;
+
+    // Auto-detect if images should be shown (unless explicitly set via Alt+Enter)
+    const shouldFetchImages = triggerImageSearch || shouldShowImages(query);
 
     handleExpand();
 
@@ -110,7 +160,7 @@ export const Panel: React.FC = () => {
     const assistantMessageId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
 
-    if (triggerImageSearch) {
+    if (shouldFetchImages) {
       setIsSearching(true);
       // @ts-ignore
       window.ipcRenderer?.invoke('fetch-search-results', query.trim()).then((res: any) => {

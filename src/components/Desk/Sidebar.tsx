@@ -11,9 +11,9 @@ import {
   ChevronDown,
   Brain,
   BrainCircuit,
+  User,
 } from "lucide-react";
 import { getSettings } from "../../lib/store";
-import profile from "../../assets/profile.png";
 
 export type TabId =
   | "dashboard"
@@ -94,12 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
           className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200/80 transition-all cursor-pointer group"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden border border-gray-200">
-            <img
-              src={profile}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
+          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm overflow-hidden border border-indigo-200">
+            <User size={16} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-gray-900 leading-tight truncate">

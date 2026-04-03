@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Save, Cpu, ChevronDown, Zap, Activity, Globe, Database } from 'lucide-react';
+import { Save, Cpu, ChevronDown, Zap, Activity, Globe, Database, User } from 'lucide-react';
 import { OzenSettings } from '../../../types/chat';
 import { getSettings, saveSettings } from '../../../lib/store';
 import { useOllama } from '../../../hooks/useOllama';
 import { useGroq } from '../../../hooks/useGroq';
 import { getUsageStats } from '../../../lib/rateLimit';
-import profile from '../../../assets/profile.png';
 
 export const SettingsView: React.FC = () => {
   const { models: ollamaModels } = useOllama();
@@ -133,8 +132,8 @@ export const SettingsView: React.FC = () => {
             {/* User Profile */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center gap-4 mb-5">
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0 shadow-inner">
-                  <img src={profile} alt="Profile" className="w-full h-full object-cover" />
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 shadow-inner">
+                  <User size={28} className="text-indigo-400" />
                 </div>
                 <div>
                   <h2 className="text-[15px] font-bold text-gray-900">Profile Configuration</h2>
@@ -208,6 +207,30 @@ export const SettingsView: React.FC = () => {
               </div>
               
               <div className="space-y-4">
+                <div className="space-y-2 px-1">
+                  <p className="text-[13px] font-bold text-gray-800">Membrain API Key</p>
+                  <p className="text-[11px] text-gray-400 font-medium">Required for memory to persist between sessions.</p>
+                  <input
+                    type="password"
+                    value={settings.membrainApiKey || ''}
+                    onChange={e => handleChange('membrainApiKey', e.target.value)}
+                    placeholder="Enter your Membrain API key…"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                  />
+                </div>
+
+                <div className="space-y-2 px-1">
+                  <p className="text-[13px] font-bold text-gray-800">Membrain API URL</p>
+                  <p className="text-[11px] text-gray-400 font-medium">Leave blank to use the default endpoint.</p>
+                  <input
+                    type="text"
+                    value={settings.membrainApiUrl || ''}
+                    onChange={e => handleChange('membrainApiUrl', e.target.value)}
+                    placeholder="https://mem-brain-api-cutover-v4-production.up.railway.app"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                  />
+                </div>
+
                 <div className="flex items-center justify-between px-1">
                   <div>
                     <p className="text-[13px] font-bold text-gray-800">Floating Panel Memory Fetch</p>
